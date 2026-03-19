@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useCallback, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useCombatState } from "./combat/useCombatState";
+import { useWeaponsStore } from "./combat/useWeapons";
 import AtmosphereGlow from "./globe/AtmosphereGlow";
 import CloudLayer from "./globe/CloudLayer";
 import PlanetSphere from "./globe/PlanetSphere";
@@ -12,6 +13,7 @@ import {
   buildHexTexture,
   buildNightTexture,
 } from "./globe/globeTextures";
+import { useTutorialStore } from "./tutorial/useTutorialStore";
 import { generateTargetId, useTacticalStore } from "./useTacticalStore";
 
 export const NODE_COUNT = 14;
@@ -75,7 +77,6 @@ function TargetReticle({ lat, lng }: { lat: number; lng: number }) {
 
   return (
     <group position={pos} quaternion={quat}>
-      {/* Outer spinning ring */}
       <mesh ref={outerRef}>
         <ringGeometry args={[0.07, 0.095, 32]} />
         <meshBasicMaterial
@@ -87,7 +88,6 @@ function TargetReticle({ lat, lng }: { lat: number; lng: number }) {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Inner pulsing dot */}
       <mesh ref={innerRef}>
         <circleGeometry args={[0.018, 16]} />
         <meshBasicMaterial
@@ -99,7 +99,6 @@ function TargetReticle({ lat, lng }: { lat: number; lng: number }) {
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Corner tick marks */}
       {[0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((angle) => (
         <mesh
           key={angle}
@@ -147,9 +146,29 @@ function NodeMarker({
 
   const pos = useMemo(() => latLngToVec3(lat, lng, 1.53), [lat, lng]);
 
-  const handleSelect = useCallback(() => {
-    selectNode(id);
-    pushEventLog({ msg: `TARGET LOCKED: ${id}`, type: "lock" });
+  /**
+   * Two-tap targeting/firing:
+   *   Tap 1 — node NOT selected → acquire lock
+   *   Tap 2 — node already selected → fire active weapon
+   */
+  const handleTap = useCallback(() => {
+    const currentNode = useTacticalStore.getState().selectedNode;
+    if (currentNode === id) {
+      // Second tap on same target → fire
+      useWeaponsStore.getState().fireSelected();
+    } else {
+      // First tap → lock target
+      selectNode(id);
+      pushEventLog({ msg: `TARGET LOCKED: ${id}`, type: "lock" });
+      import("./tacticalLog/useTacticalLogStore").then(
+        ({ useTacticalLogStore }) => {
+          useTacticalLogStore.getState().addEntry({
+            type: "combat",
+            message: `TARGET LOCKED: ${id}`,
+          });
+        },
+      );
+    }
   }, [id, selectNode, pushEventLog]);
 
   useFrame(({ clock }) => {
@@ -191,8 +210,8 @@ function NodeMarker({
     <mesh
       ref={meshRef}
       position={pos}
-      onClick={handleSelect}
-      onPointerUp={handleSelect}
+      onClick={handleTap}
+      onPointerUp={handleTap}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
       userData={{ nodeId: id, index }}
@@ -353,6 +372,134 @@ function EnergyHotspot() {
   );
 }
 
+/**
+ * GlobeHitPulse — brief expanding ring when a hit is registered.
+ * Reads targetHitFlash from combat state.
+ */
+function GlobeHitPulse() {
+  const pulseHitFlash = useCombatState((s) => s.pulseHitFlash);
+  const railHitFlash = useCombatState((s) => s.railHitFlash);
+  const targetHitFlash = useCombatState((s) => s.targetHitFlash);
+  const active = pulseHitFlash || railHitFlash || targetHitFlash;
+  const ringRef = useRef<THREE.Mesh>(null!);
+  const ring2Ref = useRef<THREE.Mesh>(null!);
+  const startTimeRef = useRef<number | null>(null);
+
+  useFrame(({ clock }) => {
+    if (active && startTimeRef.current === null) {
+      startTimeRef.current = clock.elapsedTime;
+    }
+    if (!active) {
+      startTimeRef.current = null;
+    }
+    const r = ringRef.current;
+    const r2 = ring2Ref.current;
+    if (!r || !r2) return;
+    if (!active || startTimeRef.current === null) {
+      r.visible = false;
+      r2.visible = false;
+      return;
+    }
+    const elapsed = clock.elapsedTime - startTimeRef.current;
+    const t = Math.min(elapsed / 0.45, 1.0);
+    const scale = 1.0 + t * 0.6;
+    const opacity = (1.0 - t) * 0.55;
+    r.visible = true;
+    r2.visible = true;
+    r.scale.setScalar(scale);
+    r2.scale.setScalar(scale * 1.15);
+    (r.material as THREE.MeshBasicMaterial).opacity = opacity;
+    (r2.material as THREE.MeshBasicMaterial).opacity = opacity * 0.5;
+  });
+
+  return (
+    <>
+      <mesh ref={ringRef}>
+        <ringGeometry args={[1.51, 1.58, 64]} />
+        <meshBasicMaterial
+          color="#00ffcc"
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh ref={ring2Ref}>
+        <ringGeometry args={[1.58, 1.68, 64]} />
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </>
+  );
+}
+
+/**
+ * TutorialTargetHint — pulsing globe surface cue during the "target" step.
+ * Makes it obvious where to tap on mobile.
+ */
+function TutorialTargetHint() {
+  const tutorialActive = useTutorialStore((s) => s.tutorialActive);
+  const currentStep = useTutorialStore((s) => s.currentStep);
+  const ringRef = useRef<THREE.Mesh>(null!);
+  const ring2Ref = useRef<THREE.Mesh>(null!);
+  const visible = tutorialActive && currentStep === "target";
+
+  useFrame(({ clock }) => {
+    const r = ringRef.current;
+    const r2 = ring2Ref.current;
+    if (!r || !r2) return;
+    if (!visible) {
+      r.visible = false;
+      r2.visible = false;
+      return;
+    }
+    const t = clock.elapsedTime;
+    r.visible = true;
+    r2.visible = true;
+    const pulse = 0.25 + 0.25 * Math.sin(t * 2.5);
+    const scale = 1.0 + 0.04 * Math.sin(t * 1.8);
+    r.scale.setScalar(scale);
+    r2.scale.setScalar(scale * 1.05);
+    (r.material as THREE.MeshBasicMaterial).opacity = pulse;
+    (r2.material as THREE.MeshBasicMaterial).opacity = pulse * 0.4;
+  });
+
+  return (
+    <>
+      {/* Equatorial guide ring */}
+      <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.52, 1.56, 64]} />
+        <meshBasicMaterial
+          color="#00ffcc"
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      <mesh ref={ring2Ref} rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.56, 1.62, 64]} />
+        <meshBasicMaterial
+          color="#00aaff"
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </>
+  );
+}
+
 export default function GlobeCore() {
   const setHoveredCoords = useTacticalStore((s) => s.setHoveredCoords);
   const setGlobeTarget = useTacticalStore((s) => s.setGlobeTarget);
@@ -376,17 +523,83 @@ export default function GlobeCore() {
     setHoveredCoords(null);
   }, [setHoveredCoords]);
 
+  /**
+   * Revised two-tap targeting on globe surface.
+   *
+   * FIX: The old logic fired whenever ANY node was selected (including
+   * NODE-xx markers), so tapping a new location never updated globeTarget
+   * and the red reticle stayed frozen at the old position.
+   *
+   * New rule:
+   *   - Second-tap (fire) ONLY triggers when:
+   *       • there is already a globeTarget
+   *       • the selected node ID matches that globeTarget's id
+   *       • the id is NOT a NODE-xx marker
+   *       • the new tap is within 25° (or 35° during tutorial) of the existing target
+   *   - Everything else → ALWAYS update globeTarget so the reticle moves.
+   */
   const handleGlobeClick = useCallback(
     (lat: number, lng: number) => {
+      const tutorialActive = useTutorialStore.getState().tutorialActive;
+      const tutorialStep = useTutorialStore.getState().currentStep;
+
+      // During tutorial "target" step: always set new target, never fire weapon.
+      // Bypasses the isSecondTap guard (with its 35° radius) so ANY tap advances tutorial.
+      if (tutorialActive && tutorialStep === "target") {
+        const sector = getSectorName(lat, lng);
+        const id = generateTargetId();
+        setGlobeTarget({ lat, lng, sector, id, threatLevel: 1 });
+        selectNode(id);
+        useTutorialStore.getState().setTargetDetected();
+        return;
+      }
+
+      const currentTarget = useTacticalStore.getState().globeTarget as {
+        lat: number;
+        lng: number;
+        sector: string;
+        id: string;
+        threatLevel: number;
+      } | null;
+      const currentSelectedNode = useTacticalStore.getState().selectedNode;
+
+      // Beginner assist: wider fire-confirm radius during tutorial
+      const fireDegRadius = tutorialActive ? 35 : 25;
+
+      const isSecondTap =
+        currentTarget !== null &&
+        currentSelectedNode === currentTarget.id &&
+        !currentTarget.id.startsWith("NODE-") &&
+        Math.abs(lat - currentTarget.lat) < fireDegRadius &&
+        Math.abs(lng - currentTarget.lng) < fireDegRadius;
+
+      if (isSecondTap) {
+        useWeaponsStore.getState().fireSelected();
+        return;
+      }
+
+      // Always update target so reticle follows the new tap
       const sector = getSectorName(lat, lng);
       const id = generateTargetId();
       const threatLevel = Math.floor(Math.random() * 5) + 1;
       setGlobeTarget({ lat, lng, sector, id, threatLevel });
       selectNode(id);
+
+      // Signal tutorial (belt-and-suspenders)
+      useTutorialStore.getState().setTargetDetected();
+
       pushEventLog({
         msg: `TARGET ACQUIRED: ${id} @ ${lat.toFixed(1)}° ${lng.toFixed(1)}°`,
         type: "lock",
       });
+      import("./tacticalLog/useTacticalLogStore").then(
+        ({ useTacticalLogStore }) => {
+          useTacticalLogStore.getState().addEntry({
+            type: "combat",
+            message: `TARGET ACQUIRED: ${id} @ ${lat.toFixed(1)}° ${lng.toFixed(1)}°`,
+          });
+        },
+      );
     },
     [setGlobeTarget, selectNode, pushEventLog],
   );
@@ -409,6 +622,8 @@ export default function GlobeCore() {
       {globeTarget && (
         <TargetReticle lat={globeTarget.lat} lng={globeTarget.lng} />
       )}
+      <GlobeHitPulse />
+      <TutorialTargetHint />
     </group>
   );
 }

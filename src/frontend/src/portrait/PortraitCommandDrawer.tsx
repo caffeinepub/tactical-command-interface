@@ -1,10 +1,11 @@
 import { useEffect, useRef } from "react";
-import AlertsPanel from "../dashboard/panels/AlertsPanel";
+import AlertPanel from "../alerts/AlertPanel";
 import CommandPanel from "../dashboard/panels/CommandPanel";
 import EngineeringPanel from "../dashboard/panels/EngineeringPanel";
 import LogsPanel from "../dashboard/panels/LogsPanel";
 import ScannerPanel from "../dashboard/panels/ScannerPanel";
 import WeaponsPanel from "../dashboard/panels/WeaponsPanel";
+import CampaignPanel from "../story/CampaignPanel";
 import { useDashboardStore } from "../useDashboardStore";
 import MarketPanel from "./MarketPanel";
 import ShipStatusCards from "./ShipStatusCards";
@@ -20,6 +21,7 @@ const DRAWER_TABS = [
   { id: "market", label: "MARKET" },
   { id: "alerts", label: "ALERTS" },
   { id: "logs", label: "LOG" },
+  { id: "campaign", label: "CAMPAIGN" },
 ] as const;
 
 function TabContent({ tab }: { tab: string }) {
@@ -39,9 +41,11 @@ function TabContent({ tab }: { tab: string }) {
     case "market":
       return <MarketPanel />;
     case "alerts":
-      return <AlertsPanel />;
+      return <AlertPanel />;
     case "logs":
       return <LogsPanel />;
+    case "campaign":
+      return <CampaignPanel />;
     default:
       return <CommandPanel />;
   }
@@ -63,9 +67,8 @@ export default function PortraitCommandDrawer() {
   }, [portraitDrawerTab]);
 
   const handleKeyClose = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+    if (e.key === "Enter" || e.key === " " || e.key === "Escape")
       closePortraitDrawer();
-    }
   };
 
   return (
@@ -108,7 +111,6 @@ export default function PortraitCommandDrawer() {
           overflow: "hidden",
         }}
       >
-        {/* Handle — button for accessibility */}
         <button
           type="button"
           aria-label="Close drawer"
@@ -136,7 +138,6 @@ export default function PortraitCommandDrawer() {
           />
         </button>
 
-        {/* Tab bar */}
         <div
           ref={tabBarRef}
           style={{
@@ -151,6 +152,7 @@ export default function PortraitCommandDrawer() {
         >
           {DRAWER_TABS.map((tab) => {
             const isActive = portraitDrawerTab === tab.id;
+            const isCampaign = tab.id === "campaign";
             return (
               <button
                 key={tab.id}
@@ -164,11 +166,15 @@ export default function PortraitCommandDrawer() {
                   fontSize: 8,
                   letterSpacing: "0.16em",
                   fontWeight: 700,
-                  color: isActive ? "#00ffcc" : "rgba(0,180,255,0.45)",
+                  color: isActive
+                    ? isCampaign
+                      ? "#ffcc44"
+                      : "#00ffcc"
+                    : "rgba(0,180,255,0.45)",
                   background: "transparent",
                   border: "none",
                   borderBottom: isActive
-                    ? "2px solid #00ffcc"
+                    ? `2px solid ${isCampaign ? "#ffcc44" : "#00ffcc"}`
                     : "2px solid transparent",
                   cursor: "pointer",
                   outline: "none",
@@ -186,7 +192,6 @@ export default function PortraitCommandDrawer() {
           })}
         </div>
 
-        {/* Scrollable content */}
         <div
           style={{
             flex: 1,

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useTutorialStore } from "../tutorial/useTutorialStore";
 
 export type ThreatStatus =
   | "INCOMING"
@@ -53,6 +54,16 @@ export const useThreatStore = create<ThreatStore>((set, get) => ({
     );
     if (active.length >= 3) return;
 
+    // Beginner assist: slower during tutorial + early-game (first 8 threats)
+    const tutActive = useTutorialStore.getState().tutorialActive;
+    const totalSpawned = threats.length; // includes destroyed ones
+    const isEarlyGame = totalSpawned < 8;
+    const speed = tutActive
+      ? rand(0.01, 0.018) // ~4-5x slower during tutorial
+      : isEarlyGame
+        ? rand(0.022, 0.038) // ~2x slower in early game
+        : rand(0.04, 0.08); // normal speed after 8 threats
+
     const threat: AsteroidThreat = {
       id: `THREAT-${Date.now()}-${Math.floor(Math.random() * 9999)}`,
       startAzimuth: rand(0, Math.PI * 2),
@@ -61,7 +72,7 @@ export const useThreatStore = create<ThreatStore>((set, get) => ({
       impactAzimuth: rand(0, Math.PI * 2),
       impactElevation: rand(-0.8, 0.8),
       progress: 0,
-      speed: rand(0.04, 0.08),
+      speed,
       status: "INCOMING",
       health: 1.0,
       spawnTime: Date.now(),
@@ -80,14 +91,12 @@ export const useThreatStore = create<ThreatStore>((set, get) => ({
 
         if (newProgress >= 1.0) {
           newStatus = "SURVIVED";
-        } else if (newProgress >= 0.85) {
-          newStatus = "INTERCEPT_WINDOW";
-        } else if (newProgress >= 0.7) {
-          newStatus = "PRIORITY_TARGET";
-        } else if (newProgress >= 0.4) {
+        } else if (newProgress > 0.85) {
           newStatus = "IMPACT_RISK";
-        } else {
-          newStatus = "INCOMING";
+        } else if (newProgress > 0.65) {
+          newStatus = "INTERCEPT_WINDOW";
+        } else if (newProgress > 0.4) {
+          newStatus = "PRIORITY_TARGET";
         }
 
         return { ...t, progress: newProgress, status: newStatus };
@@ -95,15 +104,11 @@ export const useThreatStore = create<ThreatStore>((set, get) => ({
     }));
   },
 
-  interceptThreat: (
-    threatId: string,
-    weaponType: "pulse" | "railgun" | "emp",
-  ) => {
-    const damage = WEAPON_DAMAGE[weaponType] ?? 0.3;
+  interceptThreat: (threatId, weaponType) => {
+    const damage = WEAPON_DAMAGE[weaponType];
     set((state) => ({
       threats: state.threats.map((t) => {
         if (t.id !== threatId) return t;
-        if (t.status === "DESTROYED" || t.status === "SURVIVED") return t;
         const newHealth = Math.max(0, t.health - damage);
         return {
           ...t,
@@ -117,7 +122,7 @@ export const useThreatStore = create<ThreatStore>((set, get) => ({
   removeDestroyedThreats: () => {
     set((state) => ({
       threats: state.threats.filter(
-        (t) => t.status !== "DESTROYED" || Date.now() - t.spawnTime < 60000, // keep briefly for animation
+        (t) => t.status !== "DESTROYED" || Date.now() - t.spawnTime < 3000,
       ),
     }));
   },

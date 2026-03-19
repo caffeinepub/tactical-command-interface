@@ -9,7 +9,8 @@ export type DashboardTab =
   | "engineering"
   | "missions"
   | "alerts"
-  | "logs";
+  | "logs"
+  | "campaign";
 
 export interface ShipStatus {
   name: string;
@@ -25,7 +26,7 @@ export interface Alert {
   id: string;
   type: "threat" | "system" | "combat" | "navigation" | "aegis";
   severity: "INFO" | "WARNING" | "CRITICAL";
-  /** @deprecated use severity — kept for backward compat */
+  /** @deprecated use severity */
   level: "INFO" | "WARNING" | "CRITICAL";
   title: string;
   message: string;
@@ -53,7 +54,6 @@ interface DashboardStore {
   shipStatus: ShipStatus;
   alerts: Alert[];
   logs: LogEntry[];
-  // Portrait drawer state
   portraitDrawerOpen: boolean;
   portraitDrawerTab: string;
   openDashboard: (tab?: DashboardTab) => void;
@@ -87,7 +87,7 @@ const MOCK_ALERTS: Alert[] = [
     level: "CRITICAL",
     title: "HULL BREACH DETECTED",
     message:
-      "Micro-fracture event on deck 7 — section 14-C reporting atmospheric loss. Emergency bulkheads engaged. Repair drones dispatched.",
+      "Micro-fracture event on deck 7 \u2014 section 14-C reporting atmospheric loss.",
     timestamp: "04:14:02",
     source: "HULL-SENSOR-14C",
     acknowledged: false,
@@ -99,7 +99,7 @@ const MOCK_ALERTS: Alert[] = [
     level: "WARNING",
     title: "GRAVITATIONAL ANOMALY",
     message:
-      "CLASS II gravitational distortion at grid 14-C. Drift trajectory calculated. Course correction recommended within 12 minutes.",
+      "CLASS II gravitational distortion at grid 14-C. Course correction recommended.",
     timestamp: "04:12:38",
     source: "NAVIGATION-CORE",
     acknowledged: false,
@@ -111,7 +111,7 @@ const MOCK_ALERTS: Alert[] = [
     level: "WARNING",
     title: "SHIELD EMITTER FAULT",
     message:
-      "Emitter #3 flux instability — resonance drift at 0.4% above nominal. Backup emitter online. Monitor for further degradation.",
+      "Emitter #3 flux instability \u2014 resonance drift at 0.4% above nominal.",
     timestamp: "04:09:11",
     source: "SHIELD-EMITTER-3",
     acknowledged: false,
@@ -123,7 +123,7 @@ const MOCK_ALERTS: Alert[] = [
     level: "INFO",
     title: "JUMP DRIVE COOLDOWN",
     message:
-      "Jump drive cooldown active. Next available jump window in T-MINUS 00:08:32. Standby mode engaged. All nav systems nominal.",
+      "Jump drive cooldown active. Next available jump window in T-MINUS 00:08:32.",
     timestamp: "04:07:55",
     source: "DRIVE-CONTROL",
     acknowledged: true,
@@ -134,8 +134,7 @@ const MOCK_ALERTS: Alert[] = [
     severity: "WARNING",
     level: "WARNING",
     title: "SENSOR ARRAY DEGRADED",
-    message:
-      "Long-range sensor array operating at 73% capacity. Solar interference from ALPHA-7 primary. Estimated restoration: 00:04:10.",
+    message: "Long-range sensor array operating at 73% capacity.",
     timestamp: "04:06:30",
     source: "SENSOR-ARRAY-LR",
     acknowledged: false,
@@ -146,8 +145,7 @@ const MOCK_ALERTS: Alert[] = [
     severity: "INFO",
     level: "INFO",
     title: "AUTOMATED SCAN COMPLETE",
-    message:
-      "Scheduled sector sweep finished. 14 nodes catalogued, 2 flagged for follow-up. No hostile contacts detected within range.",
+    message: "Scheduled sector sweep finished. 14 nodes catalogued.",
     timestamp: "04:04:19",
     source: "AEGIS-SYSTEM",
     acknowledged: true,
@@ -159,7 +157,7 @@ const MOCK_LOGS: LogEntry[] = [
     id: "l1",
     type: "scan",
     timestamp: "04:12:44",
-    message: "Node NEXUS-7 locked — signal acquired",
+    message: "Node NEXUS-7 locked \u2014 signal acquired",
     category: "SCAN",
     severity: "INFO",
     source: "SCAN-SUBSYSTEM",
@@ -168,7 +166,7 @@ const MOCK_LOGS: LogEntry[] = [
     id: "l2",
     type: "scan",
     timestamp: "04:11:22",
-    message: "Scan sweep complete — 14 nodes catalogued",
+    message: "Scan sweep complete \u2014 14 nodes catalogued",
     category: "SCAN",
     severity: "INFO",
     source: "SCAN-SUBSYSTEM",
@@ -177,7 +175,7 @@ const MOCK_LOGS: LogEntry[] = [
     id: "l3",
     type: "system",
     timestamp: "04:09:18",
-    message: "Shield emitter fault logged — monitoring",
+    message: "Shield emitter fault logged \u2014 monitoring",
     category: "SYS",
     severity: "WARNING",
     source: "SHIELD-EMITTER-3",
@@ -195,7 +193,7 @@ const MOCK_LOGS: LogEntry[] = [
     id: "l5",
     type: "navigation",
     timestamp: "04:03:55",
-    message: "Sector ALPHA-7 entered — threat ELEVATED",
+    message: "Sector ALPHA-7 entered \u2014 threat ELEVATED",
     category: "NAV",
     severity: "WARNING",
     source: "NAVIGATION-CORE",
@@ -204,7 +202,7 @@ const MOCK_LOGS: LogEntry[] = [
     id: "l6",
     type: "system",
     timestamp: "04:00:00",
-    message: "System boot complete — all subsystems nominal",
+    message: "System boot complete \u2014 all subsystems nominal",
     category: "SYS",
     severity: "INFO",
     source: "BOOT-SEQUENCER",
@@ -225,14 +223,10 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       dashboardOpen: true,
       activeDashboardTab: tab ?? s.activeDashboardTab,
     })),
-
   closeDashboard: () => set({ dashboardOpen: false }),
-
   setTab: (tab) => set({ activeDashboardTab: tab }),
-
   dismissAlert: (id) =>
     set((s) => ({ alerts: s.alerts.filter((a) => a.id !== id) })),
-
   addLog: (msg, category = "SYS") =>
     set((s) => ({
       logs: [
@@ -246,35 +240,25 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
         ...s.logs,
       ].slice(0, 50),
     })),
-
   addAlert: (alert) =>
     set((s) => ({
       alerts: [
-        {
-          ...alert,
-          id: `a${Date.now()}`,
-          acknowledged: false,
-        },
+        { ...alert, id: `a${Date.now()}`, acknowledged: false },
         ...s.alerts,
       ],
     })),
-
   acknowledgeAlert: (id) =>
     set((s) => ({
       alerts: s.alerts.map((a) =>
         a.id === id ? { ...a, acknowledged: true } : a,
       ),
     })),
-
   clearAlerts: () => set({ alerts: [] }),
-
   openPortraitDrawer: (tab) =>
     set((s) => ({
       portraitDrawerOpen: true,
       portraitDrawerTab: tab ?? s.portraitDrawerTab,
     })),
-
   closePortraitDrawer: () => set({ portraitDrawerOpen: false }),
-
   setPortraitDrawerTab: (tab) => set({ portraitDrawerTab: tab }),
 }));

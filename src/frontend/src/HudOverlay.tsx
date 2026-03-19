@@ -71,7 +71,10 @@ function ThreatWarningBanner() {
   );
 }
 
-export default function HudOverlay() {
+/** showThreatBanner=false suppresses the banner (use in portrait where PortraitStatusBar already shows it) */
+export default function HudOverlay({
+  showThreatBanner = true,
+}: { showThreatBanner?: boolean }) {
   const W = 1440;
   const H = 900;
   const vb = `0 0 ${W} ${H}`;
@@ -293,8 +296,8 @@ export default function HudOverlay() {
         </g>
       </svg>
 
-      {/* Threat warning banner */}
-      <ThreatWarningBanner />
+      {/* Threat warning banner — only in landscape (portrait uses PortraitStatusBar) */}
+      {showThreatBanner && <ThreatWarningBanner />}
     </div>
   );
 }

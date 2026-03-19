@@ -12,6 +12,7 @@ const TABS: { id: DashboardTab; label: string; short: string }[] = [
   { id: "missions", label: "MISSIONS", short: "MSN" },
   { id: "alerts", label: "ALERTS", short: "ALT" },
   { id: "logs", label: "LOGS", short: "LOG" },
+  { id: "campaign", label: "CAMPAIGN", short: "CMP" },
 ];
 
 const DashboardSidebar = memo(function DashboardSidebar({
@@ -34,6 +35,7 @@ const DashboardSidebar = memo(function DashboardSidebar({
       >
         {TABS.map((tab) => {
           const active = activeDashboardTab === tab.id;
+          const isCampaign = tab.id === "campaign";
           return (
             <button
               key={tab.id}
@@ -47,11 +49,15 @@ const DashboardSidebar = memo(function DashboardSidebar({
                 fontSize: 9,
                 letterSpacing: "0.15em",
                 fontWeight: active ? 700 : 400,
-                color: active ? "#00ffcc" : "rgba(0,180,255,0.5)",
+                color: active
+                  ? isCampaign
+                    ? "#ffcc44"
+                    : "#00ffcc"
+                  : "rgba(0,180,255,0.5)",
                 background: active ? "rgba(0,40,60,0.6)" : "transparent",
                 border: "none",
                 borderBottom: active
-                  ? "2px solid #00ffcc"
+                  ? `2px solid ${isCampaign ? "#ffcc44" : "#00ffcc"}`
                   : "2px solid transparent",
                 cursor: "pointer",
                 minHeight: 44,
@@ -101,6 +107,7 @@ const DashboardSidebar = memo(function DashboardSidebar({
     >
       {TABS.map((tab) => {
         const active = activeDashboardTab === tab.id;
+        const isCampaign = tab.id === "campaign";
         return (
           <button
             key={tab.id}
@@ -116,11 +123,15 @@ const DashboardSidebar = memo(function DashboardSidebar({
               fontSize: 9,
               letterSpacing: "0.15em",
               fontWeight: active ? 700 : 400,
-              color: active ? "#00ffcc" : "rgba(0,180,255,0.5)",
+              color: active
+                ? isCampaign
+                  ? "#ffcc44"
+                  : "#00ffcc"
+                : "rgba(0,180,255,0.5)",
               background: active ? "rgba(0,40,60,0.5)" : "transparent",
               border: "none",
               borderLeft: active
-                ? "2px solid #00ffcc"
+                ? `2px solid ${isCampaign ? "#ffcc44" : "#00ffcc"}`
                 : "2px solid transparent",
               cursor: "pointer",
               minHeight: 44,

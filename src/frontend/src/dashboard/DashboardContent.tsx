@@ -10,6 +10,7 @@ const EngineeringPanel = lazy(() => import("./panels/EngineeringPanel"));
 const MissionsPanel = lazy(() => import("./panels/MissionsPanel"));
 const AlertsPanel = lazy(() => import("./panels/AlertsPanel"));
 const LogsPanel = lazy(() => import("./panels/LogsPanel"));
+const CampaignPanel = lazy(() => import("../story/CampaignPanel"));
 
 function PanelFallback() {
   return (
@@ -30,15 +31,10 @@ function PanelFallback() {
   );
 }
 
-interface DashboardContentProps {
-  landscape?: boolean;
-}
-
 const DashboardContent = memo(function DashboardContent({
   landscape,
-}: DashboardContentProps) {
+}: { landscape?: boolean }) {
   const { activeDashboardTab } = useDashboardStore();
-
   return (
     <div
       style={{
@@ -68,6 +64,7 @@ const DashboardContent = memo(function DashboardContent({
         {activeDashboardTab === "missions" && <MissionsPanel />}
         {activeDashboardTab === "alerts" && <AlertsPanel />}
         {activeDashboardTab === "logs" && <LogsPanel />}
+        {activeDashboardTab === "campaign" && <CampaignPanel />}
       </Suspense>
     </div>
   );

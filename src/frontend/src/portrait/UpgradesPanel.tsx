@@ -1,30 +1,34 @@
+/**
+ * UpgradesPanel — real credits integration, functional install/uninstall
+ */
 import { useState } from "react";
+import { useCreditsStore } from "../credits/useCreditsStore";
+import { useStoryStore } from "../story/useStoryStore";
+import { useTacticalLogStore } from "../tacticalLog/useTacticalLogStore";
 
-interface UpgradeCard {
+type Tier = 1 | 2 | 3;
+
+interface UpgradeDef {
   id: string;
   name: string;
-  tier: 1 | 2 | 3;
+  tier: Tier;
   cost: number;
-  currency: "credits" | "cores";
-  unlocked: boolean;
-  installed: boolean;
   statChange: string;
   description: string;
+  effects: { oxygen?: number; hull?: number; power?: number };
   iconCol: number;
   iconRow: number;
 }
 
-const UPGRADES: UpgradeCard[] = [
+const UPGRADES: UpgradeDef[] = [
   {
     id: "shield-gen",
     name: "SHIELD GENERATOR",
     tier: 2,
-    cost: 1200,
-    currency: "credits",
-    unlocked: true,
-    installed: false,
+    cost: 800,
     statChange: "+15% SHIELD REGEN",
     description: "Enhances regeneration rate of energy shields.",
+    effects: { hull: 10 },
     iconCol: 0,
     iconRow: 0,
   },
@@ -32,25 +36,21 @@ const UPGRADES: UpgradeCard[] = [
     id: "engine-boost",
     name: "ENGINE BOOST",
     tier: 1,
-    cost: 800,
-    currency: "credits",
-    unlocked: true,
-    installed: true,
+    cost: 600,
     statChange: "+20% DRIVE SPEED",
     description: "Overclocked drive system for rapid repositioning.",
+    effects: { power: 5 },
     iconCol: 1,
     iconRow: 0,
   },
   {
     id: "targeting",
     name: "TARGETING ARRAY",
-    tier: 3,
-    cost: 2400,
-    currency: "cores",
-    unlocked: false,
-    installed: false,
+    tier: 2,
+    cost: 1000,
     statChange: "+30% LOCK SPEED",
     description: "Advanced multi-target acquisition system.",
+    effects: {},
     iconCol: 2,
     iconRow: 0,
   },
@@ -59,59 +59,92 @@ const UPGRADES: UpgradeCard[] = [
     name: "ARMOR PLATING",
     tier: 1,
     cost: 600,
-    currency: "credits",
-    unlocked: true,
-    installed: true,
     statChange: "+25% HULL RESIST",
     description: "Reinforced composite hull panels.",
+    effects: { hull: 8 },
     iconCol: 0,
     iconRow: 1,
   },
   {
-    id: "reactor",
+    id: "quantum-reactor",
     name: "QUANTUM REACTOR",
     tier: 3,
-    cost: 3200,
-    currency: "cores",
-    unlocked: false,
-    installed: false,
+    cost: 1800,
     statChange: "+40% POWER OUTPUT",
     description: "Quantum-threaded power core for maximum yield.",
+    effects: { power: 15 },
     iconCol: 1,
     iconRow: 1,
   },
   {
     id: "stealth",
     name: "STEALTH MODULE",
-    tier: 2,
-    cost: 1800,
-    currency: "credits",
-    unlocked: false,
-    installed: false,
+    tier: 3,
+    cost: 2200,
     statChange: "-60% RADAR SIG",
     description: "Low-emission hull coating for reduced detection.",
+    effects: {},
     iconCol: 2,
     iconRow: 1,
   },
 ];
 
-const TIER_COLORS: Record<number, string> = {
+const TIER_COLORS: Record<Tier, string> = {
   1: "#00ff80",
   2: "#00c8ff",
   3: "#ff9900",
 };
 
 export default function UpgradesPanel() {
+  const balance = useCreditsStore((s) => s.balance);
+  const spend = useCreditsStore((s) => s.spend);
   const [installed, setInstalled] = useState<Set<string>>(
-    new Set(UPGRADES.filter((u) => u.installed).map((u) => u.id)),
+    new Set(["engine-boost", "armor"]),
   );
 
-  const handleInstall = (id: string) => {
-    setInstalled((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const handleInstall = (upgrade: UpgradeDef) => {
+    if (installed.has(upgrade.id)) {
+      // Uninstall — no refund
+      setInstalled((prev) => {
+        const next = new Set(prev);
+        next.delete(upgrade.id);
+        return next;
+      });
+      useTacticalLogStore.getState().addEntry({
+        type: "system",
+        message: `MODULE UNINSTALLED: ${upgrade.name}`,
+      });
+      return;
+    }
+    // Install — deduct credits and apply effects
+    const ok = spend(upgrade.cost, `Install: ${upgrade.name}`);
+    if (!ok) return;
+
+    setInstalled((prev) => new Set([...prev, upgrade.id]));
+
+    // Apply system effects
+    const fx = upgrade.effects;
+    if (Object.keys(fx).length > 0) {
+      const story = useStoryStore.getState();
+      useStoryStore.setState({
+        oxygenLevel: Math.max(
+          0,
+          Math.min(100, story.oxygenLevel + (fx.oxygen ?? 0)),
+        ),
+        hullIntegrity: Math.max(
+          0,
+          Math.min(100, story.hullIntegrity + (fx.hull ?? 0)),
+        ),
+        powerLevel: Math.max(
+          0,
+          Math.min(100, story.powerLevel + (fx.power ?? 0)),
+        ),
+      });
+    }
+
+    useTacticalLogStore.getState().addEntry({
+      type: "system",
+      message: `MODULE INSTALLED: ${upgrade.name} — ${upgrade.statChange}`,
     });
   };
 
@@ -126,7 +159,7 @@ export default function UpgradesPanel() {
         WebkitOverflowScrolling: "touch" as unknown as undefined,
       }}
     >
-      {/* Header */}
+      {/* Header with real balance */}
       <div
         style={{
           display: "flex",
@@ -145,36 +178,26 @@ export default function UpgradesPanel() {
             fontWeight: 700,
           }}
         >
-          UPGRADES & MODULES
+          UPGRADES &amp; MODULES
         </span>
-        <div style={{ display: "flex", gap: 10 }}>
-          <span
-            style={{
-              fontFamily: "monospace",
-              fontSize: 8,
-              color: "#00c8ff",
-              letterSpacing: "0.1em",
-            }}
-          >
-            ◈ 4,200
-          </span>
-          <span
-            style={{
-              fontFamily: "monospace",
-              fontSize: 8,
-              color: "#ff9900",
-              letterSpacing: "0.1em",
-            }}
-          >
-            ⬡ 12 CORES
-          </span>
+        <div
+          style={{
+            fontFamily: "monospace",
+            fontSize: 10,
+            fontWeight: 700,
+            color: "#ffee66",
+            letterSpacing: "0.12em",
+          }}
+        >
+          ◈ {balance.toLocaleString()} CR
         </div>
       </div>
 
       {/* Cards */}
       {UPGRADES.map((upgrade) => {
         const isInstalled = installed.has(upgrade.id);
-        const tierColor = TIER_COLORS[upgrade.tier] ?? "#00c8ff";
+        const canAfford = balance >= upgrade.cost;
+        const tierColor = TIER_COLORS[upgrade.tier];
         const bgX = upgrade.iconCol * 100;
         const bgY = upgrade.iconRow * 100;
 
@@ -184,27 +207,19 @@ export default function UpgradesPanel() {
             style={{
               background: isInstalled
                 ? "rgba(0,30,20,0.6)"
-                : upgrade.unlocked
-                  ? "rgba(0,8,22,0.8)"
-                  : "rgba(0,5,15,0.7)",
+                : "rgba(0,8,22,0.8)",
               border: `1px solid ${
-                isInstalled
-                  ? "rgba(0,255,128,0.25)"
-                  : upgrade.unlocked
-                    ? "rgba(0,200,255,0.15)"
-                    : "rgba(0,80,100,0.2)"
+                isInstalled ? "rgba(0,255,128,0.25)" : "rgba(0,200,255,0.15)"
               }`,
               borderRadius: 6,
               padding: "10px 12px",
               display: "flex",
               flexDirection: "column",
               gap: 6,
-              opacity: upgrade.unlocked ? 1 : 0.65,
             }}
           >
-            {/* Top row: icon + name + tier + stat */}
+            {/* Top row */}
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              {/* Icon */}
               <div
                 style={{
                   width: 40,
@@ -215,7 +230,6 @@ export default function UpgradesPanel() {
                   backgroundPosition: `${bgX}% ${bgY}%`,
                   backgroundRepeat: "no-repeat",
                   flexShrink: 0,
-                  opacity: upgrade.unlocked ? 1 : 0.4,
                   borderRadius: 3,
                   border: `1px solid ${tierColor}22`,
                 }}
@@ -235,9 +249,7 @@ export default function UpgradesPanel() {
                       fontSize: 9,
                       fontWeight: 700,
                       letterSpacing: "0.12em",
-                      color: upgrade.unlocked
-                        ? "rgba(0,220,255,0.9)"
-                        : "rgba(0,120,150,0.7)",
+                      color: "rgba(0,220,255,0.9)",
                     }}
                   >
                     {upgrade.name}
@@ -252,7 +264,6 @@ export default function UpgradesPanel() {
                       border: `1px solid ${tierColor}44`,
                       borderRadius: 2,
                       padding: "1px 4px",
-                      letterSpacing: "0.1em",
                       flexShrink: 0,
                     }}
                   >
@@ -286,7 +297,7 @@ export default function UpgradesPanel() {
               {upgrade.description}
             </div>
 
-            {/* Bottom row: cost + action button */}
+            {/* Bottom row: cost + action */}
             <div
               style={{
                 display: "flex",
@@ -298,22 +309,19 @@ export default function UpgradesPanel() {
                 style={{
                   fontFamily: "monospace",
                   fontSize: 8,
-                  color:
-                    upgrade.currency === "credits"
-                      ? "rgba(0,200,255,0.6)"
-                      : "rgba(255,153,0,0.7)",
+                  color: canAfford
+                    ? "rgba(0,200,255,0.6)"
+                    : "rgba(255,80,60,0.6)",
                   letterSpacing: "0.1em",
                 }}
               >
-                {!upgrade.unlocked && "🔒 "}
-                {upgrade.cost.toLocaleString()}{" "}
-                {upgrade.currency === "credits" ? "CR" : "CORES"}
+                {upgrade.cost.toLocaleString()} CR
               </div>
 
               <button
                 type="button"
-                disabled={!upgrade.unlocked}
-                onClick={() => upgrade.unlocked && handleInstall(upgrade.id)}
+                data-ocid="upgrades.button"
+                onClick={() => handleInstall(upgrade)}
                 style={{
                   fontFamily: "monospace",
                   fontSize: 8,
@@ -325,30 +333,30 @@ export default function UpgradesPanel() {
                   border: `1px solid ${
                     isInstalled
                       ? "rgba(0,255,128,0.4)"
-                      : upgrade.unlocked
+                      : canAfford
                         ? "rgba(0,200,255,0.4)"
-                        : "rgba(0,80,100,0.3)"
+                        : "rgba(255,60,40,0.3)"
                   }`,
                   background: isInstalled
                     ? "rgba(0,40,20,0.8)"
-                    : upgrade.unlocked
+                    : canAfford
                       ? "rgba(0,20,50,0.8)"
-                      : "rgba(0,10,20,0.6)",
+                      : "rgba(20,5,5,0.7)",
                   color: isInstalled
                     ? "#00ff80"
-                    : upgrade.unlocked
+                    : canAfford
                       ? "#00c8ff"
-                      : "rgba(0,100,130,0.5)",
-                  cursor: upgrade.unlocked ? "pointer" : "not-allowed",
+                      : "rgba(255,80,60,0.6)",
+                  cursor: "pointer",
                   WebkitTapHighlightColor: "transparent",
                   outline: "none",
                 }}
               >
                 {isInstalled
-                  ? "✓ EQUIPPED"
-                  : upgrade.unlocked
+                  ? "✓ UNINSTALL"
+                  : canAfford
                     ? "INSTALL"
-                    : "LOCKED"}
+                    : "NEED CR"}
               </button>
             </div>
           </div>

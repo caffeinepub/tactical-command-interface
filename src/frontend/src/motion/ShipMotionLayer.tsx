@@ -6,6 +6,8 @@ interface Props {
   children: ReactNode;
   zIndex?: number;
   style?: CSSProperties;
+  /** 0 = no cockpit lean applied (default). 1 = full lean applied. */
+  leanMult?: number;
 }
 
 export default function ShipMotionLayer({
@@ -13,13 +15,14 @@ export default function ShipMotionLayer({
   children,
   zIndex,
   style,
+  leanMult = 0,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!ref.current) return;
-    return registerMotionLayer(ref.current, factor);
-  }, [factor]);
+    return registerMotionLayer(ref.current, factor, leanMult);
+  }, [factor, leanMult]);
 
   return (
     <div

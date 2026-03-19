@@ -1,41 +1,104 @@
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { NODE_IDS, NODE_POSITIONS, latLngToVec3 } from "../GlobeCore";
+import { useShipStore } from "../ship/useShipStore";
+import { useTacticalStore } from "../useTacticalStore";
 import DestructionEffects from "./DestructionEffects";
-import { EMPImpact, PulseImpact, RailImpact } from "./ImpactEffects";
+import {
+  EMPImpact,
+  MissileExplosion,
+  PulseImpact,
+  RailImpact,
+} from "./ImpactEffects";
 import {
   EMPWave,
   MissileTracer,
   PulseBolt,
   RailSlug,
+  getShipOriginWorld,
 } from "./ProjectileSystem";
 import { useCombatState } from "./useCombatState";
+import { useThreatStore } from "./useThreatStore";
 import { useWeaponsStore } from "./useWeapons";
 
-function getTargetPos(nodeId: string): THREE.Vector3 | null {
-  const idx = NODE_IDS.indexOf(nodeId);
-  if (idx < 0) return null;
-  const [lat, lng] = NODE_POSITIONS[idx];
-  const [x, y, z] = latLngToVec3(lat, lng, 1.53);
-  return new THREE.Vector3(x, y, z);
+/**
+ * Resolve a targetId to a world-space THREE.Vector3.
+ * Handles three target types:
+ *  - NODE-xx   → fixed globe surface node
+ *  - TGT-xxxx  → coordinate target from globe tap (via globeTarget in tactical store)
+ *  - THREAT-xxx → asteroid threat interpolated world position
+ */
+function resolveTargetPos(nodeId: string): THREE.Vector3 | null {
+  // Fixed globe nodes
+  const nodeIdx = NODE_IDS.indexOf(nodeId);
+  if (nodeIdx >= 0) {
+    const [lat, lng] = NODE_POSITIONS[nodeIdx];
+    const [x, y, z] = latLngToVec3(lat, lng, 1.53);
+    return new THREE.Vector3(x, y, z);
+  }
+
+  // Globe coordinate target (TGT-xxxx)
+  if (nodeId.startsWith("TGT-")) {
+    const gt = useTacticalStore.getState().globeTarget;
+    if (gt) {
+      const [x, y, z] = latLngToVec3(gt.lat, gt.lng, 1.53);
+      return new THREE.Vector3(x, y, z);
+    }
+    // Fallback: fire forward toward globe center
+    const ship = useShipStore.getState();
+    const r = ship.orbitalRadius;
+    const cx = r * Math.cos(ship.orbitalPhi) * Math.sin(ship.orbitalTheta);
+    const cy = r * Math.sin(ship.orbitalPhi);
+    const cz = r * Math.cos(ship.orbitalPhi) * Math.cos(ship.orbitalTheta);
+    return new THREE.Vector3(-cx, -cy, -cz).normalize().multiplyScalar(1.5);
+  }
+
+  // Threat target (THREAT-xxx)
+  if (nodeId.startsWith("THREAT-")) {
+    const threat = useThreatStore
+      .getState()
+      .threats.find((t) => t.id === nodeId);
+    if (threat) {
+      const endPos = new THREE.Vector3(
+        1.55 *
+          Math.cos(threat.impactElevation) *
+          Math.cos(threat.impactAzimuth),
+        1.55 * Math.sin(threat.impactElevation),
+        1.55 *
+          Math.cos(threat.impactElevation) *
+          Math.sin(threat.impactAzimuth),
+      );
+      const startPos = new THREE.Vector3(
+        threat.startRadius *
+          Math.cos(threat.startElevation) *
+          Math.cos(threat.startAzimuth),
+        threat.startRadius * Math.sin(threat.startElevation),
+        threat.startRadius *
+          Math.cos(threat.startElevation) *
+          Math.sin(threat.startAzimuth),
+      );
+      return new THREE.Vector3().lerpVectors(startPos, endPos, threat.progress);
+    }
+  }
+
+  return null;
 }
 
 export default function CombatEffectsLayer() {
   const firingEffect = useCombatState((s) => s.firingEffect);
   const tick = useWeaponsStore((s) => s.tick);
 
+  // Advance weapon cooldowns every frame
   useFrame((_, delta) => {
     tick(delta * 1000);
   });
 
-  const targetPos = firingEffect ? getTargetPos(firingEffect.targetId) : null;
+  const targetPos = firingEffect
+    ? resolveTargetPos(firingEffect.targetId)
+    : null;
 
-  const elapsed = firingEffect
-    ? Math.min(
-        1,
-        (performance.now() - firingEffect.startTime) / firingEffect.duration,
-      )
-    : 0;
+  // Compute ship origin once per render (captured by projectile components via originPos prop)
+  const originPos = firingEffect ? getShipOriginWorld() : undefined;
 
   return (
     <group>
@@ -44,33 +107,65 @@ export default function CombatEffectsLayer() {
       {firingEffect && targetPos && (
         <>
           {firingEffect.type === "pulse" && (
-            <PulseBolt targetPos={targetPos} progress={elapsed} />
+            <PulseBolt
+              targetPos={targetPos}
+              originPos={originPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
           )}
           {firingEffect.type === "railgun" && (
-            <RailSlug targetPos={targetPos} progress={elapsed} />
+            <RailSlug
+              targetPos={targetPos}
+              originPos={originPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
           )}
           {firingEffect.type === "emp" && (
-            <EMPWave targetPos={targetPos} progress={elapsed} />
+            <EMPWave
+              targetPos={targetPos}
+              originPos={originPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
           )}
           {firingEffect.type === "missile" && (
-            <MissileTracer targetPos={targetPos} progress={elapsed} />
+            <MissileTracer
+              targetPos={targetPos}
+              originPos={originPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
           )}
 
-          {elapsed >= 0.75 && (
-            <>
-              {firingEffect.type === "pulse" && (
-                <PulseImpact targetPos={targetPos} progress={elapsed} />
-              )}
-              {firingEffect.type === "railgun" && (
-                <RailImpact targetPos={targetPos} progress={elapsed} />
-              )}
-              {firingEffect.type === "emp" && (
-                <EMPImpact targetPos={targetPos} progress={elapsed} />
-              )}
-              {firingEffect.type === "missile" && (
-                <PulseImpact targetPos={targetPos} progress={elapsed} />
-              )}
-            </>
+          {firingEffect.type === "pulse" && (
+            <PulseImpact
+              targetPos={targetPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
+          )}
+          {firingEffect.type === "railgun" && (
+            <RailImpact
+              targetPos={targetPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
+          )}
+          {firingEffect.type === "emp" && (
+            <EMPImpact
+              targetPos={targetPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
+          )}
+          {firingEffect.type === "missile" && (
+            <MissileExplosion
+              targetPos={targetPos}
+              startTime={firingEffect.startTime}
+              duration={firingEffect.duration}
+            />
           )}
         </>
       )}

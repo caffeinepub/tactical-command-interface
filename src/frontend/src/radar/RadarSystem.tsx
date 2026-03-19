@@ -1,6 +1,15 @@
+/**
+ * RadarSystem — tactical radar with ship-heading-relative blip positioning.
+ *
+ * Blip angle is computed as:
+ *   worldAngle - shipOrbitalTheta
+ * so contacts always appear relative to the ship's current heading,
+ * not as fixed world-space angles.
+ */
 import { useEffect, useRef } from "react";
 import type { AsteroidThreat } from "../combat/useThreatStore";
 import { useThreatStore } from "../combat/useThreatStore";
+import { useShipStore } from "../ship/useShipStore";
 import { useTacticalStore } from "../useTacticalStore";
 
 const SIZE = 110;
@@ -22,8 +31,9 @@ const PRIORITY_COLOR: Record<string, string> = {
   INCOMING: "#00ccff",
 };
 
-function getThreatAngle(t: AsteroidThreat): number {
-  return t.startAzimuth;
+function getThreatAngle(t: AsteroidThreat, shipTheta: number): number {
+  // Relative bearing: world azimuth minus ship orbital theta
+  return t.startAzimuth - shipTheta;
 }
 
 function getThreatRadius(t: AsteroidThreat): number {
@@ -58,6 +68,8 @@ export default function RadarSystem() {
 
     const draw = (ts: number) => {
       const sweep = (ts * 0.001 * 0.65) % (Math.PI * 2);
+      // Read ship heading each frame for heading-relative blips
+      const shipTheta = useShipStore.getState().orbitalTheta;
 
       ctx.clearRect(0, 0, SIZE, SIZE);
 
@@ -83,7 +95,7 @@ export default function RadarSystem() {
         ctx.stroke();
       }
 
-      // Cross hairs
+      // Crosshairs
       ctx.strokeStyle = "rgba(0,180,255,0.12)";
       ctx.lineWidth = 0.5;
       ctx.beginPath();
@@ -114,9 +126,17 @@ export default function RadarSystem() {
       ctx.stroke();
       ctx.restore();
 
-      // Threat blips
+      // Heading indicator (forward tick at top)
+      ctx.strokeStyle = "rgba(0,255,200,0.5)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(CX, CY - MAX_R + 2);
+      ctx.lineTo(CX, CY - MAX_R - 4);
+      ctx.stroke();
+
+      // Threat blips — heading-relative
       for (const t of sorted) {
-        const angle = getThreatAngle(t) - Math.PI / 2;
+        const angle = getThreatAngle(t, shipTheta) - Math.PI / 2;
         const r = getThreatRadius(t);
         const bx = CX + Math.cos(angle) * r;
         const by = CY + Math.sin(angle) * r;
@@ -124,7 +144,6 @@ export default function RadarSystem() {
         const isSelected = selectedNode === t.id;
         const priority = PRIORITY_LABEL[t.status] ?? "T?";
 
-        // Glow halo
         const grd = ctx.createRadialGradient(bx, by, 0, bx, by, 8);
         grd.addColorStop(0, `${color}cc`);
         grd.addColorStop(1, `${color}00`);
@@ -133,18 +152,15 @@ export default function RadarSystem() {
         ctx.arc(bx, by, 8, 0, Math.PI * 2);
         ctx.fill();
 
-        // Core dot
         ctx.fillStyle = isSelected ? "#ffffff" : color;
         ctx.beginPath();
         ctx.arc(bx, by, isSelected ? 3 : 2.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // Priority label
         ctx.fillStyle = color;
         ctx.font = "bold 7px monospace";
         ctx.fillText(priority, bx + 4, by - 2);
 
-        // Selection ring
         if (isSelected) {
           ctx.strokeStyle = "#ffffff";
           ctx.lineWidth = 0.8;
@@ -154,7 +170,7 @@ export default function RadarSystem() {
         }
       }
 
-      // Center dot
+      // Center dot (Earth)
       ctx.fillStyle = "rgba(0,220,255,0.9)";
       ctx.beginPath();
       ctx.arc(CX, CY, 2, 0, Math.PI * 2);

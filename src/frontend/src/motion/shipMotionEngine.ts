@@ -13,12 +13,20 @@ let joltX = 0;
 let joltY = 0;
 let joltRot = 0;
 
+// Cockpit lean — driven by joystick X via setCockpitLean()
+let cockpitLean = 0;
+let cockpitLeanTarget = 0;
+
+// G-force sway amplifier — increases with velocity
+let gForceAmp = 1.0;
+
 const MAX_SWAY_X = 4.5;
 const MAX_SWAY_Y = 2.5;
 const MAX_SWAY_ROT = 0.1;
 const LERP_RATE = 0.013;
+const MAX_LEAN_DEG = 1.8;
 
-type Layer = { el: HTMLElement; factor: number };
+type Layer = { el: HTMLElement; factor: number; leanMult: number };
 const layers: Layer[] = [];
 
 let rafId: number | null = null;
@@ -62,14 +70,25 @@ function tick(now: number) {
   if (Math.abs(joltY) < 0.001) joltY = 0;
   if (Math.abs(joltRot) < 0.0001) joltRot = 0;
 
-  const totalX = swayX + joltX;
-  const totalY = swayY + joltY;
+  // Cockpit lean: smooth toward target
+  cockpitLean = lerp(
+    cockpitLean,
+    cockpitLeanTarget,
+    Math.min(0.06 * dtFactor, 1),
+  );
+  cockpitLeanTarget = lerp(cockpitLeanTarget, 0, Math.min(0.08 * dtFactor, 1));
+
+  // G-force amp decays back to 1 when not accelerating
+  gForceAmp = lerp(gForceAmp, 1.0, Math.min(0.05 * dtFactor, 1));
+
+  const totalX = (swayX + joltX) * gForceAmp;
+  const totalY = (swayY + joltY) * gForceAmp;
   const totalRot = swayRot + joltRot;
 
   for (const layer of layers) {
     const x = totalX * layer.factor;
     const y = totalY * layer.factor;
-    const r = totalRot * layer.factor;
+    const r = totalRot * layer.factor + cockpitLean * layer.leanMult;
     layer.el.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
   }
 
@@ -94,11 +113,25 @@ function stopRAF() {
   }
 }
 
+/** Set cockpit lean target (in degrees). Called by ship movement engine. */
+export function setCockpitLean(deg: number): void {
+  cockpitLeanTarget = Math.max(-MAX_LEAN_DEG, Math.min(MAX_LEAN_DEG, deg));
+}
+
+/**
+ * Set G-force amplifier. Called by movement engine with normalized velocity.
+ * amp=1 = idle, amp=1.6 = full thrust (subtle increase in sway range).
+ */
+export function setGForceAmp(amp: number): void {
+  gForceAmp = Math.max(1.0, Math.min(1.6, amp));
+}
+
 export function registerMotionLayer(
   el: HTMLElement,
   factor: number,
+  leanMult = 0,
 ): () => void {
-  layers.push({ el, factor });
+  layers.push({ el, factor, leanMult });
   if (layers.length === 1) startRAF();
 
   return () => {

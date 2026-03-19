@@ -1,31 +1,49 @@
 import { Canvas } from "@react-three/fiber";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import GlobeCore, { NODE_COUNT } from "./GlobeCore";
 import HudOverlay from "./HudOverlay";
 import SmokeTestPanel from "./SmokeTestPanel";
+import CriticalAlertOverlay from "./alerts/CriticalAlertOverlay";
 import CockpitAmbientFx from "./cockpit/CockpitAmbientFx";
 import CockpitFrame from "./cockpit/CockpitFrame";
 import SideEnclosure from "./cockpit/SideEnclosure";
 import CombatEffectsLayer from "./combat/CombatEffectsLayer";
+import WeaponControlDeck from "./combat/WeaponControlDeck";
 import { useThreatStore } from "./combat/useThreatStore";
 import { useWeaponsStore } from "./combat/useWeapons";
+import { TUTORIAL_BONUS, useCreditsStore } from "./credits/useCreditsStore";
 import CommandDashboard from "./dashboard/CommandDashboard";
 import CoordinateDisplay from "./globe/CoordinateDisplay";
 import { useOrientation } from "./hooks/useOrientation";
+import AirHandlerIndicator from "./hud/AirHandlerIndicator";
+import CockpitReticle from "./hud/CockpitReticle";
+import ImpactParticleOverlay from "./hud/ImpactParticleOverlay";
 import LeftPanel from "./hud/LeftPanel";
 import RightPanel from "./hud/RightPanel";
+import TargetLockAnim from "./hud/TargetLockAnim";
+import VelocityIndicator from "./hud/VelocityIndicator";
+import { useIntroStore } from "./intro/useIntroStore";
 import ShipMotionLayer from "./motion/ShipMotionLayer";
 import BottomCommandNav from "./portrait/BottomCommandNav";
 import PortraitCommandDrawer from "./portrait/PortraitCommandDrawer";
 import PortraitStatusBar from "./portrait/PortraitStatusBar";
-import WeaponActionModule from "./portrait/WeaponActionModule";
+import MobileJoystick from "./ship/MobileJoystick";
+import RightDragZone from "./ship/RightDragZone";
+import { useShipMovementSetup } from "./ship/useShipMovementSetup";
 import { runSmokeTests } from "./smokeTest";
+import SpaceLogPanel from "./story/SpaceLogPanel";
+import StoryEventModal from "./story/StoryEventModal";
+import { useAlertsEngine, useStoryEngine } from "./story/useStoryEngine";
+import SubtitleStrip from "./subtitle/SubtitleStrip";
 import TacticalLogPanel from "./tacticalLog/TacticalLogPanel";
 import { useTacticalLogStore } from "./tacticalLog/useTacticalLogStore";
 import CameraController from "./three/CameraController";
+import GlobeHitPulse from "./three/GlobeHitPulse";
 import InterceptSystem from "./three/InterceptSystem";
 import SpaceBackground from "./three/SpaceBackground";
 import ThreatManager from "./three/ThreatManager";
+import TutorialOverlay from "./tutorial/TutorialOverlay";
+import { useTutorialStore } from "./tutorial/useTutorialStore";
 import { useDashboardStore } from "./useDashboardStore";
 import { useTacticalStore } from "./useTacticalStore";
 
@@ -57,7 +75,6 @@ function compactBtnStyle(
   };
 }
 
-/** Interactive HUD controls — landscape top bar */
 function HudControls() {
   const selectedNode = useTacticalStore((s) => s.selectedNode);
   const scanMode = useTacticalStore((s) => s.scanMode);
@@ -66,9 +83,18 @@ function HudControls() {
   const dashboardOpen = useDashboardStore((s) => s.dashboardOpen);
   const openDashboard = useDashboardStore((s) => s.openDashboard);
 
+  const handleScan = () => {
+    toggleScanMode();
+    useTutorialStore.getState().setScanDetected();
+  };
+
+  const handleCmd = () => {
+    openDashboard("command");
+    useTutorialStore.getState().setPanelOpened();
+  };
+
   return (
     <>
-      {/* Top-right: SCAN + CMD buttons */}
       <div
         style={{
           position: "absolute",
@@ -81,21 +107,22 @@ function HudControls() {
       >
         <button
           type="button"
-          onClick={toggleScanMode}
+          data-tutorial-target="scan-btn"
+          onClick={handleScan}
           style={compactBtnStyle(scanMode, "#00ffcc")}
         >
-          {scanMode ? "◉ SCAN" : "◎ SCAN"}
+          {scanMode ? "\u25c9 SCAN" : "\u25ce SCAN"}
         </button>
         <button
           type="button"
-          onClick={() => openDashboard("command")}
+          data-tutorial-target="cmd-btn"
+          onClick={handleCmd}
           style={compactBtnStyle(dashboardOpen, "#00ccff")}
         >
-          {dashboardOpen ? "⬡ SYS" : "⬡ CMD"}
+          {dashboardOpen ? "\u2b21 SYS" : "\u2b21 CMD"}
         </button>
       </div>
 
-      {/* Top-left: target indicator + CLR */}
       <div
         style={{
           position: "absolute",
@@ -117,7 +144,9 @@ function HudControls() {
             whiteSpace: "nowrap",
           }}
         >
-          {selectedNode ? `▸ LOCKED — ${selectedNode}` : "▸ NO TARGET"}
+          {selectedNode
+            ? `\u25b8 LOCKED \u2014 ${selectedNode}`
+            : "\u25b8 NO TARGET"}
         </span>
         {selectedNode && (
           <button
@@ -145,7 +174,6 @@ function HudControls() {
   );
 }
 
-/** Floating LOG button — right side, landscape only */
 function FloatingLogButton() {
   const logPanelOpen = useTacticalLogStore((s) => s.panelOpen);
   const toggleLogPanel = useTacticalLogStore((s) => s.togglePanel);
@@ -188,7 +216,7 @@ function FloatingLogButton() {
           lineHeight: 1,
         }}
       >
-        ≡
+        \u2261
       </span>
       <span
         style={{
@@ -208,7 +236,6 @@ function FloatingLogButton() {
   );
 }
 
-/** Three.js scene children — shared */
 function SceneChildren() {
   return (
     <>
@@ -221,12 +248,30 @@ function SceneChildren() {
       <CombatEffectsLayer />
       <ThreatManager />
       <InterceptSystem />
+      <GlobeHitPulse />
     </>
   );
 }
 
-/** Portrait layout */
 function PortraitStage() {
+  const handleGlobeAreaTap = useCallback((e: React.PointerEvent) => {
+    const tutStep = useTutorialStore.getState().currentStep;
+    if (tutStep !== "target") return;
+    // DOM-level belt-and-suspenders: fires if Three.js onClick/onPointerUp did not register
+    const store = useTacticalStore.getState();
+    if (!store.globeTarget) {
+      store.setGlobeTarget({
+        lat: 20 + Math.random() * 20,
+        lng: -10 + Math.random() * 20,
+        sector: "ALPHA-7",
+        id: `TGT-${Date.now()}`,
+        threatLevel: 1,
+      });
+    }
+    useTutorialStore.getState().setTargetDetected();
+    e.stopPropagation();
+  }, []);
+
   return (
     <div
       style={{
@@ -242,8 +287,9 @@ function PortraitStage() {
     >
       <PortraitStatusBar />
 
-      {/* Globe area */}
       <div
+        data-tutorial-target="globe-area"
+        onPointerUp={handleGlobeAreaTap}
         style={{
           position: "relative",
           height: "42dvh",
@@ -272,13 +318,47 @@ function PortraitStage() {
           zIndex={10}
           style={{ pointerEvents: "none" }}
         >
-          <HudOverlay />
+          <HudOverlay showThreatBanner={false} />
           <div
             style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
           >
             <CoordinateDisplay />
           </div>
         </ShipMotionLayer>
+
+        {/* Target lock animation — HUD layer */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 11,
+            pointerEvents: "none",
+          }}
+        >
+          <TargetLockAnim />
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 11,
+            pointerEvents: "none",
+          }}
+        >
+          <CockpitReticle portrait />
+        </div>
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 11,
+            pointerEvents: "none",
+          }}
+        >
+          <ImpactParticleOverlay />
+        </div>
 
         <ShipMotionLayer
           factor={0.15}
@@ -290,26 +370,47 @@ function PortraitStage() {
 
         <ShipMotionLayer
           factor={0.2}
+          leanMult={1}
           zIndex={15}
           style={{ pointerEvents: "none" }}
         >
           <CockpitFrame />
         </ShipMotionLayer>
+
+        <div
+          style={{
+            position: "absolute",
+            bottom: 10,
+            left: 10,
+            zIndex: 20,
+            pointerEvents: "none",
+            display: "flex",
+            flexDirection: "column",
+            gap: 5,
+            alignItems: "flex-start",
+          }}
+        >
+          <VelocityIndicator />
+          <AirHandlerIndicator />
+        </div>
+
+        <RightDragZone />
       </div>
 
-      {/* Weapon action module (portrait — tap slots to fire) */}
-      <WeaponActionModule />
-
-      {/* Bottom nav */}
+      <WeaponControlDeck portrait />
       <BottomCommandNav />
-
-      {/* Portrait drawer */}
       <PortraitCommandDrawer />
-
-      {/* Tactical log panel — shared */}
       <TacticalLogPanel />
+      <MobileJoystick />
 
-      {/* QA overlays */}
+      {/* Tutorial overlay */}
+      <TutorialOverlay />
+
+      {/* Story systems */}
+      <StoryEventModal />
+      <SpaceLogPanel />
+      <CriticalAlertOverlay />
+
       <div
         style={{
           position: "fixed",
@@ -324,7 +425,6 @@ function PortraitStage() {
   );
 }
 
-/** Landscape layout */
 function LandscapeStage() {
   return (
     <div
@@ -338,7 +438,6 @@ function LandscapeStage() {
       }}
       className="tactical-stage"
     >
-      {/* LAYER 1 — Globe canvas */}
       <ShipMotionLayer factor={1.0} zIndex={1}>
         <Canvas
           camera={{ position: [0, 0, 5], fov: 52 }}
@@ -354,7 +453,6 @@ function LandscapeStage() {
         </Canvas>
       </ShipMotionLayer>
 
-      {/* LAYER 2 — Side enclosure */}
       <div
         style={{
           position: "absolute",
@@ -366,19 +464,51 @@ function LandscapeStage() {
         <SideEnclosure />
       </div>
 
-      {/* LAYER 3 — HUD */}
       <ShipMotionLayer
         factor={0.55}
         zIndex={10}
         style={{ pointerEvents: "none" }}
       >
-        <HudOverlay />
+        <HudOverlay showThreatBanner />
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
           <CoordinateDisplay />
         </div>
       </ShipMotionLayer>
 
-      {/* LAYER 4 — Cockpit ambient FX */}
+      {/* Target lock animation — HUD layer */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 11,
+          pointerEvents: "none",
+        }}
+      >
+        <TargetLockAnim />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 11,
+          pointerEvents: "none",
+        }}
+      >
+        <CockpitReticle />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 11,
+          pointerEvents: "none",
+        }}
+      >
+        <ImpactParticleOverlay />
+      </div>
+
       <ShipMotionLayer
         factor={0.15}
         zIndex={12}
@@ -387,7 +517,6 @@ function LandscapeStage() {
         <CockpitAmbientFx />
       </ShipMotionLayer>
 
-      {/* LAYER 5 — Cockpit frame image */}
       <ShipMotionLayer
         factor={0.2}
         zIndex={15}
@@ -396,11 +525,20 @@ function LandscapeStage() {
         <CockpitFrame />
       </ShipMotionLayer>
 
-      {/* LAYER 6 — Left + Right glass panels */}
+      {/* Globe area spotlight target */}
+      <div
+        data-tutorial-target="globe-area"
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      />
+
       <LeftPanel />
       <RightPanel />
 
-      {/* LAYER 7 — HUD controls */}
       <div
         style={{
           position: "absolute",
@@ -412,7 +550,34 @@ function LandscapeStage() {
         <HudControls />
       </div>
 
-      {/* LAYER 8 — Floating LOG button */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 35,
+          pointerEvents: "none",
+        }}
+      >
+        <WeaponControlDeck portrait={false} />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          bottom: "clamp(70px, 10vh, 110px)",
+          left: "clamp(14px, 2.5vw, 30px)",
+          zIndex: 38,
+          pointerEvents: "none",
+          display: "flex",
+          flexDirection: "column",
+          gap: 5,
+          alignItems: "flex-start",
+        }}
+      >
+        <VelocityIndicator />
+        <AirHandlerIndicator />
+      </div>
+
       <div
         style={{
           position: "absolute",
@@ -424,7 +589,6 @@ function LandscapeStage() {
         <FloatingLogButton />
       </div>
 
-      {/* LAYER 9 — Smoke test panel */}
       <div
         style={{
           position: "absolute",
@@ -436,7 +600,6 @@ function LandscapeStage() {
         <SmokeTestPanel />
       </div>
 
-      {/* LAYER 10 — Command dashboard */}
       <div
         style={{
           position: "absolute",
@@ -448,10 +611,53 @@ function LandscapeStage() {
         <CommandDashboard />
       </div>
 
-      {/* Tactical log panel — fixed, above all */}
       <TacticalLogPanel />
+      <RightDragZone />
+
+      {/* Tutorial overlay */}
+      <TutorialOverlay />
+
+      {/* Story systems */}
+      <StoryEventModal />
+      <SpaceLogPanel />
+      <CriticalAlertOverlay />
     </div>
   );
+}
+
+function useTutorialGating() {
+  const pendingTutorialStart = useIntroStore((s) => s.pendingTutorialStart);
+  const consumeTutorialStart = useIntroStore((s) => s.consumeTutorialStart);
+  const tutorialComplete = useTutorialStore((s) => s.tutorialComplete);
+  const startTutorial = useTutorialStore((s) => s.startTutorial);
+  const gatedRef = useRef(false);
+
+  useEffect(() => {
+    if (!pendingTutorialStart || gatedRef.current) return;
+    gatedRef.current = true;
+    consumeTutorialStart();
+    if (!tutorialComplete) {
+      setTimeout(() => startTutorial(), 600);
+    }
+  }, [
+    pendingTutorialStart,
+    consumeTutorialStart,
+    tutorialComplete,
+    startTutorial,
+  ]);
+}
+
+function useGlobeTapTutorial() {
+  const selectedNode = useTacticalStore((s) => s.selectedNode);
+  const prevNodeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const prev = prevNodeRef.current;
+    prevNodeRef.current = selectedNode;
+    if (selectedNode && selectedNode !== prev) {
+      useTutorialStore.getState().setTargetDetected();
+    }
+  }, [selectedNode]);
 }
 
 export default function TacticalStage() {
@@ -459,6 +665,12 @@ export default function TacticalStage() {
   const [, forceUpdate] = useState(0);
   const setSmokeResults = useTacticalStore((s) => s.setSmokeResults);
   const { isPortrait } = useOrientation();
+
+  useShipMovementSetup();
+  useTutorialGating();
+  useGlobeTapTutorial();
+  useStoryEngine();
+  useAlertsEngine();
 
   useEffect(() => {
     const handleResize = () => forceUpdate((n) => n + 1);
@@ -498,5 +710,24 @@ export default function TacticalStage() {
     return () => clearTimeout(timer);
   }, [setSmokeResults]);
 
-  return isPortrait ? <PortraitStage /> : <LandscapeStage />;
+  // Award tutorial completion bonus credits (once)
+  const tutorialCompleteForBonus = useTutorialStore((s) => s.tutorialComplete);
+  const tutorialBonusFiredRef = useRef(false);
+  useEffect(() => {
+    if (tutorialCompleteForBonus && !tutorialBonusFiredRef.current) {
+      tutorialBonusFiredRef.current = true;
+      useCreditsStore.getState().earn(TUTORIAL_BONUS, "Tutorial Completed");
+      useTacticalLogStore.getState().addEntry({
+        type: "mission",
+        message: `+${TUTORIAL_BONUS} CR — Tutorial Completed`,
+      });
+    }
+  }, [tutorialCompleteForBonus]);
+
+  return (
+    <>
+      {isPortrait ? <PortraitStage /> : <LandscapeStage />}
+      <SubtitleStrip />
+    </>
+  );
 }

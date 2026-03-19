@@ -102,12 +102,31 @@ export default function PlanetSphere({
     onClick(lat, lng);
   };
 
+  // onPointerUp — belt-and-suspenders for iOS Safari where onClick can be unreliable
+  const handlePointerUp = (e: {
+    point?: THREE.Vector3;
+    clientX?: number;
+    clientY?: number;
+  }) => {
+    if (!onClick) return;
+    // Only fire if it was a short tap (not a drag)
+    if (pointerDownPos.current && e.clientX != null && e.clientY != null) {
+      const dx = e.clientX - pointerDownPos.current.x;
+      const dy = e.clientY - pointerDownPos.current.y;
+      if (dx * dx + dy * dy > 64) return; // 8px threshold
+    }
+    if (!e.point) return;
+    const { lat, lng } = intersectToLatLng(e.point);
+    onClick(lat, lng);
+  };
+
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Three.js mesh — not a DOM element
     <mesh
       onPointerMove={handlePointerMove}
       onPointerDown={handlePointerDown}
       onClick={handleClick}
+      onPointerUp={handlePointerUp}
     >
       <sphereGeometry args={[1.5, 64, 64]} />
       <shaderMaterial
