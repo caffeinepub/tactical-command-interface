@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { NODE_IDS, NODE_POSITIONS, latLngToVec3 } from "../GlobeCore";
+import type { WeaponType } from "./useCombatState";
 import { useCombatState } from "./useCombatState";
 import { useThreatStore } from "./useThreatStore";
 
@@ -42,7 +43,6 @@ function getTargetPos(id: string): THREE.Vector3 | null {
   return getNodePos(id);
 }
 
-// Fragment drift directions — static, stable keys
 const FRAGMENTS = [
   { dir: new THREE.Vector3(1, 0.5, 0).normalize(), key: "frag-0", even: true },
   {
@@ -62,9 +62,10 @@ const FRAGMENTS = [
   },
 ];
 
-function weaponColor(wt: "pulse" | "railgun" | "emp"): string {
+function weaponColor(wt: WeaponType): string {
   if (wt === "railgun") return "#4488ff";
   if (wt === "emp") return "#ff8800";
+  if (wt === "missile") return "#ff6644";
   return "#00ffcc";
 }
 
@@ -77,7 +78,6 @@ export default function DestructionEffects() {
   const cleanupRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elapsedMsRef = useRef(0);
 
-  // Capture position when event starts
   useEffect(() => {
     if (destructionEvent) {
       posRef.current = getTargetPos(destructionEvent.targetId);
@@ -91,7 +91,6 @@ export default function DestructionEffects() {
     }
   }, [destructionEvent, setDestructionEvent]);
 
-  // Track elapsed
   useFrame((_, delta) => {
     if (activeRef.current) {
       elapsedMsRef.current += delta * 1000;
@@ -106,28 +105,23 @@ export default function DestructionEffects() {
   const elapsed = elapsedMsRef.current;
   const wColor = weaponColor(destructionEvent.weaponType);
 
-  // Core burst: 0–400ms
   const burstT = Math.min(1, elapsed / 400);
   const burstRadius = burstT * 0.25;
   const burstOpacity =
     burstT < 0.4 ? burstT / 0.4 : Math.max(0, 1 - (burstT - 0.4) / 0.6);
 
-  // Debris ring: 0–600ms
   const debrisT = Math.min(1, elapsed / 600);
   const debrisRadius = 0.1 + debrisT * 0.4;
   const debrisOpacity = Math.max(0, 1 - debrisT * 1.2);
 
-  // Fragment dots: 0–800ms
   const fragT = Math.min(1, elapsed / 800);
   const fragOpacity = Math.max(0, 1 - fragT * 1.1);
 
-  // Glow collapse: 0–600ms
   const glowT = Math.min(1, elapsed / 600);
   const glowOpacity = Math.max(0, 1 - glowT * 1.4);
 
   return (
     <group position={pos}>
-      {/* Glow collapse */}
       <mesh>
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshBasicMaterial
@@ -139,7 +133,6 @@ export default function DestructionEffects() {
         />
       </mesh>
 
-      {/* Core burst */}
       <mesh>
         <sphereGeometry args={[Math.max(0.001, burstRadius), 12, 12]} />
         <meshBasicMaterial
@@ -151,7 +144,6 @@ export default function DestructionEffects() {
         />
       </mesh>
 
-      {/* Debris rings */}
       <mesh rotation={[Math.PI / 4, 0, 0]}>
         <torusGeometry args={[debrisRadius, 0.018, 6, 48]} />
         <meshBasicMaterial
@@ -173,7 +165,6 @@ export default function DestructionEffects() {
         />
       </mesh>
 
-      {/* Fragment dots */}
       {FRAGMENTS.map((frag) => (
         <mesh
           key={frag.key}

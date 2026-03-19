@@ -49,45 +49,24 @@ function ThreatWarningBanner() {
     <div
       style={{
         position: "absolute",
-        top: "7%",
-        left: "50%",
-        transform: "translateX(-50%)",
+        top: 12,
+        left: 12,
         zIndex: 1,
         pointerEvents: "none",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 4,
+        background: pulse ? "rgba(180,20,0,0.22)" : "rgba(80,8,0,0.15)",
+        border: `1px solid ${color}`,
+        borderRadius: 2,
+        padding: "3px 8px",
+        fontFamily: "monospace",
+        fontSize: 8,
+        letterSpacing: "0.14em",
+        color,
+        transition: "background 0.25s",
+        boxShadow: pulse ? `0 0 12px ${color}, 0 0 4px ${color}` : "none",
+        whiteSpace: "nowrap",
       }}
     >
-      <div
-        style={{
-          background: pulse ? "rgba(180,20,0,0.22)" : "rgba(80,8,0,0.15)",
-          border: `1px solid ${color}`,
-          borderRadius: 2,
-          padding: "4px 18px",
-          fontFamily: "monospace",
-          fontSize: 11,
-          letterSpacing: "0.22em",
-          color,
-          transition: "background 0.25s",
-          boxShadow: pulse ? `0 0 12px ${color}, 0 0 4px ${color}` : "none",
-          whiteSpace: "nowrap",
-        }}
-      >
-        ⚠ A.E.G.I.S — {label}
-      </div>
-      <div
-        style={{
-          fontFamily: "monospace",
-          fontSize: 9,
-          color: "rgba(255,180,100,0.7)",
-          letterSpacing: "0.18em",
-        }}
-      >
-        {activeThreats.length} OBJECT{activeThreats.length > 1 ? "S" : ""}{" "}
-        TRACKED
-      </div>
+      ⚠ A.E.G.I.S — {label}
     </div>
   );
 }

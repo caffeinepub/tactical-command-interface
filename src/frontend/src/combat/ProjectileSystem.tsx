@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 export const SHIP_ORIGIN = new THREE.Vector3(0, 0.1, 2.4);
 
-// ─── Pulse Bolt ──────────────────────────────────────────────────────────────
+// ─── Pulse Bolt ─────────────────────────────────────────────────────────────────────────────
 export function PulseBolt({
   targetPos,
   progress,
@@ -16,7 +16,6 @@ export function PulseBolt({
     progress > 0.85 ? Math.max(0, 1 - (progress - 0.85) * 6.67) : 1;
   const opacity = fadeIn * fadeOut;
 
-  // Tail ghost positions (relative to group at pos)
   const tailOffsets = [0.04, 0.09, 0.14];
   const tailData = tailOffsets.map((offset, i) => {
     const tp = Math.max(0, progress - offset);
@@ -32,7 +31,6 @@ export function PulseBolt({
 
   return (
     <group position={pos}>
-      {/* Outer soft glow */}
       <mesh>
         <sphereGeometry args={[0.1, 8, 8]} />
         <meshBasicMaterial
@@ -43,7 +41,6 @@ export function PulseBolt({
           depthWrite={false}
         />
       </mesh>
-      {/* Core bolt */}
       <mesh>
         <sphereGeometry args={[0.04, 8, 8]} />
         <meshBasicMaterial
@@ -54,7 +51,6 @@ export function PulseBolt({
           depthWrite={false}
         />
       </mesh>
-      {/* Tail ghosts */}
       {tailData.map((t) => (
         <mesh key={t.key} position={t.rel}>
           <sphereGeometry args={[t.radius, 6, 6]} />
@@ -71,7 +67,7 @@ export function PulseBolt({
   );
 }
 
-// ─── Rail Slug ────────────────────────────────────────────────────────────────
+// ─── Rail Slug ────────────────────────────────────────────────────────────────────────────
 export function RailSlug({
   targetPos,
   progress,
@@ -96,7 +92,6 @@ export function RailSlug({
 
   return (
     <group position={pos} quaternion={quat}>
-      {/* Outer glow cylinder */}
       <mesh>
         <cylinderGeometry args={[0.022, 0.022, 0.35, 6]} />
         <meshBasicMaterial
@@ -107,7 +102,6 @@ export function RailSlug({
           depthWrite={false}
         />
       </mesh>
-      {/* Core slug */}
       <mesh>
         <cylinderGeometry args={[0.006, 0.006, 0.35, 6]} />
         <meshBasicMaterial
@@ -118,7 +112,6 @@ export function RailSlug({
           depthWrite={false}
         />
       </mesh>
-      {/* Bright tip */}
       <mesh position={[0, 0.18, 0]}>
         <sphereGeometry args={[0.01, 6, 6]} />
         <meshBasicMaterial
@@ -133,7 +126,7 @@ export function RailSlug({
   );
 }
 
-// ─── EMP Wave ─────────────────────────────────────────────────────────────────
+// ─── EMP Wave ─────────────────────────────────────────────────────────────────────────────
 export function EMPWave({
   targetPos,
   progress,
@@ -155,7 +148,6 @@ export function EMPWave({
 
   return (
     <group position={targetPos} quaternion={quat}>
-      {/* Outer ring */}
       <mesh>
         <torusGeometry args={[radius, ringThickness, 8, 64]} />
         <meshBasicMaterial
@@ -166,7 +158,6 @@ export function EMPWave({
           depthWrite={false}
         />
       </mesh>
-      {/* Inner secondary ring */}
       <mesh>
         <torusGeometry args={[radius * 0.6, ringThickness * 0.5, 8, 48]} />
         <meshBasicMaterial
@@ -177,7 +168,6 @@ export function EMPWave({
           depthWrite={false}
         />
       </mesh>
-      {/* Center burst sphere - fades fast */}
       {progress < 0.25 && (
         <mesh>
           <sphereGeometry args={[(0.25 - progress) * 0.6, 12, 12]} />
@@ -190,6 +180,99 @@ export function EMPWave({
           />
         </mesh>
       )}
+    </group>
+  );
+}
+
+// ─── Missile Tracer ──────────────────────────────────────────────────────────────────────
+export function MissileTracer({
+  targetPos,
+  progress,
+}: {
+  targetPos: THREE.Vector3;
+  progress: number;
+}) {
+  const dir = new THREE.Vector3()
+    .subVectors(targetPos, SHIP_ORIGIN)
+    .normalize();
+  const pos = new THREE.Vector3().lerpVectors(SHIP_ORIGIN, targetPos, progress);
+
+  const quat = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  if (Math.abs(dir.dot(up)) < 0.999) {
+    quat.setFromUnitVectors(up, dir);
+  }
+
+  const fadeIn = Math.min(1, progress * 10);
+  const fadeOut = progress > 0.75 ? Math.max(0, 1 - (progress - 0.75) * 4) : 1;
+  const opacity = fadeIn * fadeOut;
+
+  // Exhaust trail particles (static offsets behind missile)
+  const trailOffsets = [0.05, 0.11, 0.18, 0.26];
+  const trailData = trailOffsets.map((offset, i) => {
+    const tp = Math.max(0, progress - offset);
+    const trailPos = new THREE.Vector3().lerpVectors(
+      SHIP_ORIGIN,
+      targetPos,
+      tp,
+    );
+    const rel = trailPos.clone().sub(pos);
+    return {
+      rel,
+      opacity: opacity * (0.6 - i * 0.12),
+      radius: 0.025 - i * 0.004,
+      key: `mtrail-${i}`,
+    };
+  });
+
+  return (
+    <group position={pos} quaternion={quat}>
+      {/* Missile body glow */}
+      <mesh>
+        <cylinderGeometry args={[0.018, 0.012, 0.22, 6]} />
+        <meshBasicMaterial
+          color="#ff6644"
+          transparent
+          opacity={opacity * 0.85}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Hot tip */}
+      <mesh position={[0, 0.12, 0]}>
+        <sphereGeometry args={[0.016, 8, 8]} />
+        <meshBasicMaterial
+          color="#ffffff"
+          transparent
+          opacity={opacity * 0.95}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Outer heat glow */}
+      <mesh>
+        <sphereGeometry args={[0.07, 8, 8]} />
+        <meshBasicMaterial
+          color="#ff4400"
+          transparent
+          opacity={opacity * 0.2}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      {/* Exhaust trail */}
+      {trailData.map((t) => (
+        <mesh key={t.key} position={t.rel}>
+          <sphereGeometry args={[t.radius, 6, 6]} />
+          <meshBasicMaterial
+            color="#ff8844"
+            transparent
+            opacity={t.opacity}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }

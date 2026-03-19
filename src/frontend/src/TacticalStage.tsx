@@ -7,16 +7,21 @@ import CockpitAmbientFx from "./cockpit/CockpitAmbientFx";
 import CockpitFrame from "./cockpit/CockpitFrame";
 import SideEnclosure from "./cockpit/SideEnclosure";
 import CombatEffectsLayer from "./combat/CombatEffectsLayer";
-import WeaponDeck from "./combat/WeaponDeck";
 import { useThreatStore } from "./combat/useThreatStore";
 import { useWeaponsStore } from "./combat/useWeapons";
 import CommandDashboard from "./dashboard/CommandDashboard";
 import CoordinateDisplay from "./globe/CoordinateDisplay";
+import { useOrientation } from "./hooks/useOrientation";
 import LeftPanel from "./hud/LeftPanel";
 import RightPanel from "./hud/RightPanel";
 import ShipMotionLayer from "./motion/ShipMotionLayer";
-import CheckpointMarkers from "./qa/CheckpointMarkers";
+import BottomCommandNav from "./portrait/BottomCommandNav";
+import PortraitCommandDrawer from "./portrait/PortraitCommandDrawer";
+import PortraitStatusBar from "./portrait/PortraitStatusBar";
+import WeaponActionModule from "./portrait/WeaponActionModule";
 import { runSmokeTests } from "./smokeTest";
+import TacticalLogPanel from "./tacticalLog/TacticalLogPanel";
+import { useTacticalLogStore } from "./tacticalLog/useTacticalLogStore";
 import CameraController from "./three/CameraController";
 import InterceptSystem from "./three/InterceptSystem";
 import SpaceBackground from "./three/SpaceBackground";
@@ -29,7 +34,7 @@ function compactBtnStyle(
   activeColor: string,
 ): React.CSSProperties {
   return {
-    padding: "4px 10px",
+    padding: "0 10px",
     fontFamily: "monospace",
     fontSize: "clamp(8px, 0.85vw, 10px)",
     letterSpacing: "0.18em",
@@ -42,13 +47,17 @@ function compactBtnStyle(
     backdropFilter: "blur(6px)",
     boxShadow: active ? `0 0 10px ${activeColor}44` : "none",
     transition: "all 0.2s ease",
-    minHeight: 30,
+    minHeight: 44,
+    minWidth: 52,
     whiteSpace: "nowrap" as const,
     pointerEvents: "auto" as const,
+    display: "flex" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   };
 }
 
-/** Interactive HUD controls — always rendered above cockpit frame */
+/** Interactive HUD controls — landscape top bar */
 function HudControls() {
   const selectedNode = useTacticalStore((s) => s.selectedNode);
   const scanMode = useTacticalStore((s) => s.scanMode);
@@ -125,6 +134,7 @@ function HudControls() {
               cursor: "pointer",
               padding: "1px 5px",
               pointerEvents: "auto",
+              minHeight: 28,
             }}
           >
             CLR
@@ -135,10 +145,320 @@ function HudControls() {
   );
 }
 
+/** Floating LOG button — right side, landscape only */
+function FloatingLogButton() {
+  const logPanelOpen = useTacticalLogStore((s) => s.panelOpen);
+  const toggleLogPanel = useTacticalLogStore((s) => s.togglePanel);
+
+  return (
+    <button
+      type="button"
+      onClick={toggleLogPanel}
+      style={{
+        position: "absolute",
+        right: "clamp(10px, 1.8vw, 22px)",
+        top: "50%",
+        transform: "translateY(-50%)",
+        zIndex: 42,
+        pointerEvents: "auto",
+        background: logPanelOpen ? "rgba(0,50,70,0.95)" : "rgba(0,8,20,0.88)",
+        border: `1px solid ${
+          logPanelOpen ? "rgba(0,255,200,0.5)" : "rgba(0,200,255,0.22)"
+        }`,
+        borderRadius: 4,
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 3,
+        padding: "10px 7px",
+        boxShadow: logPanelOpen ? "0 0 14px rgba(0,255,200,0.25)" : "none",
+        backdropFilter: "blur(8px)",
+        outline: "none",
+        transition: "all 0.2s ease",
+        minWidth: 38,
+        minHeight: 56,
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      <span
+        style={{
+          fontSize: 13,
+          color: logPanelOpen ? "#00ffcc" : "rgba(0,200,255,0.6)",
+          lineHeight: 1,
+        }}
+      >
+        ≡
+      </span>
+      <span
+        style={{
+          fontFamily: "monospace",
+          fontSize: 6,
+          letterSpacing: "0.14em",
+          fontWeight: 700,
+          color: logPanelOpen ? "#00ffcc" : "rgba(0,180,255,0.5)",
+          lineHeight: 1,
+          writingMode: "vertical-rl" as const,
+          textOrientation: "mixed" as const,
+        }}
+      >
+        LOG
+      </span>
+    </button>
+  );
+}
+
+/** Three.js scene children — shared */
+function SceneChildren() {
+  return (
+    <>
+      <ambientLight intensity={0.08} />
+      <directionalLight position={[5, 2, 3]} intensity={2.8} color="#fff5e0" />
+      <pointLight position={[-4, -1, -2]} intensity={0.35} color="#1a3fff" />
+      <SpaceBackground />
+      <CameraController />
+      <GlobeCore />
+      <CombatEffectsLayer />
+      <ThreatManager />
+      <InterceptSystem />
+    </>
+  );
+}
+
+/** Portrait layout */
+function PortraitStage() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100%",
+        height: "100dvh",
+        overflow: "hidden",
+        background: "#000008",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <PortraitStatusBar />
+
+      {/* Globe area */}
+      <div
+        style={{
+          position: "relative",
+          height: "42dvh",
+          width: "100%",
+          overflow: "hidden",
+          flexShrink: 0,
+        }}
+      >
+        <ShipMotionLayer factor={1.0} zIndex={1}>
+          <Canvas
+            camera={{ position: [0, 0, 5], fov: 52 }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                "radial-gradient(ellipse at 50% 40%, #03071a 0%, #010208 65%, #000003 100%)",
+            }}
+            gl={{ antialias: true }}
+          >
+            <SceneChildren />
+          </Canvas>
+        </ShipMotionLayer>
+
+        <ShipMotionLayer
+          factor={0.55}
+          zIndex={10}
+          style={{ pointerEvents: "none" }}
+        >
+          <HudOverlay />
+          <div
+            style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+          >
+            <CoordinateDisplay />
+          </div>
+        </ShipMotionLayer>
+
+        <ShipMotionLayer
+          factor={0.15}
+          zIndex={12}
+          style={{ pointerEvents: "none" }}
+        >
+          <CockpitAmbientFx />
+        </ShipMotionLayer>
+
+        <ShipMotionLayer
+          factor={0.2}
+          zIndex={15}
+          style={{ pointerEvents: "none" }}
+        >
+          <CockpitFrame />
+        </ShipMotionLayer>
+      </div>
+
+      {/* Weapon action module (portrait — tap slots to fire) */}
+      <WeaponActionModule />
+
+      {/* Bottom nav */}
+      <BottomCommandNav />
+
+      {/* Portrait drawer */}
+      <PortraitCommandDrawer />
+
+      {/* Tactical log panel — shared */}
+      <TacticalLogPanel />
+
+      {/* QA overlays */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 50,
+          pointerEvents: "none",
+        }}
+      >
+        <SmokeTestPanel />
+      </div>
+    </div>
+  );
+}
+
+/** Landscape layout */
+function LandscapeStage() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100%",
+        height: "100dvh",
+        overflow: "hidden",
+        background: "#000008",
+      }}
+      className="tactical-stage"
+    >
+      {/* LAYER 1 — Globe canvas */}
+      <ShipMotionLayer factor={1.0} zIndex={1}>
+        <Canvas
+          camera={{ position: [0, 0, 5], fov: 52 }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(ellipse at 50% 40%, #03071a 0%, #010208 65%, #000003 100%)",
+          }}
+          gl={{ antialias: true }}
+        >
+          <SceneChildren />
+        </Canvas>
+      </ShipMotionLayer>
+
+      {/* LAYER 2 — Side enclosure */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 8,
+          pointerEvents: "none",
+        }}
+      >
+        <SideEnclosure />
+      </div>
+
+      {/* LAYER 3 — HUD */}
+      <ShipMotionLayer
+        factor={0.55}
+        zIndex={10}
+        style={{ pointerEvents: "none" }}
+      >
+        <HudOverlay />
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          <CoordinateDisplay />
+        </div>
+      </ShipMotionLayer>
+
+      {/* LAYER 4 — Cockpit ambient FX */}
+      <ShipMotionLayer
+        factor={0.15}
+        zIndex={12}
+        style={{ pointerEvents: "none" }}
+      >
+        <CockpitAmbientFx />
+      </ShipMotionLayer>
+
+      {/* LAYER 5 — Cockpit frame image */}
+      <ShipMotionLayer
+        factor={0.2}
+        zIndex={15}
+        style={{ pointerEvents: "none" }}
+      >
+        <CockpitFrame />
+      </ShipMotionLayer>
+
+      {/* LAYER 6 — Left + Right glass panels */}
+      <LeftPanel />
+      <RightPanel />
+
+      {/* LAYER 7 — HUD controls */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 40,
+          pointerEvents: "none",
+        }}
+      >
+        <HudControls />
+      </div>
+
+      {/* LAYER 8 — Floating LOG button */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 42,
+          pointerEvents: "none",
+        }}
+      >
+        <FloatingLogButton />
+      </div>
+
+      {/* LAYER 9 — Smoke test panel */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 50,
+          pointerEvents: "none",
+        }}
+      >
+        <SmokeTestPanel />
+      </div>
+
+      {/* LAYER 10 — Command dashboard */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 60,
+          pointerEvents: "none",
+        }}
+      >
+        <CommandDashboard />
+      </div>
+
+      {/* Tactical log panel — fixed, above all */}
+      <TacticalLogPanel />
+    </div>
+  );
+}
+
 export default function TacticalStage() {
   const canvasMountedRef = useRef(false);
   const [, forceUpdate] = useState(0);
   const setSmokeResults = useTacticalStore((s) => s.setSmokeResults);
+  const { isPortrait } = useOrientation();
 
   useEffect(() => {
     const handleResize = () => forceUpdate((n) => n + 1);
@@ -178,161 +498,5 @@ export default function TacticalStage() {
     return () => clearTimeout(timer);
   }, [setSmokeResults]);
 
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        width: "100%",
-        height: "100dvh",
-        overflow: "hidden",
-        background: "#000008",
-      }}
-      className="tactical-stage"
-    >
-      {/* ===== LAYER 1 (z:1) — Globe canvas ===== */}
-      <ShipMotionLayer factor={1.0} zIndex={1}>
-        <Canvas
-          camera={{ position: [0, 0, 5], fov: 52 }}
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "radial-gradient(ellipse at 50% 40%, #03071a 0%, #010208 65%, #000003 100%)",
-          }}
-          gl={{ antialias: true }}
-        >
-          <ambientLight intensity={0.08} />
-          <directionalLight
-            position={[5, 2, 3]}
-            intensity={2.8}
-            color="#fff5e0"
-          />
-          <pointLight
-            position={[-4, -1, -2]}
-            intensity={0.35}
-            color="#1a3fff"
-          />
-          <SpaceBackground />
-          <CameraController />
-          <GlobeCore />
-          <CombatEffectsLayer />
-          <ThreatManager />
-          <InterceptSystem />
-        </Canvas>
-      </ShipMotionLayer>
-
-      {/* ===== LAYER 2 (z:8) — Side enclosure (decorative only) ===== */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 8,
-          pointerEvents: "none",
-        }}
-      >
-        <SideEnclosure />
-      </div>
-
-      {/* ===== LAYER 3 (z:10) — HUD SVG decorations (no pointer events) ===== */}
-      <ShipMotionLayer
-        factor={0.55}
-        zIndex={10}
-        style={{ pointerEvents: "none" }}
-      >
-        <HudOverlay />
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-          }}
-        >
-          <CoordinateDisplay />
-        </div>
-      </ShipMotionLayer>
-
-      {/* ===== LAYER 4 (z:12) — Cockpit ambient FX ===== */}
-      <ShipMotionLayer
-        factor={0.15}
-        zIndex={12}
-        style={{ pointerEvents: "none" }}
-      >
-        <CockpitAmbientFx />
-      </ShipMotionLayer>
-
-      {/* ===== LAYER 5 (z:15) — Cockpit frame image (pointer-events:none, mix-blend-mode:multiply) ===== */}
-      <ShipMotionLayer
-        factor={0.2}
-        zIndex={15}
-        style={{ pointerEvents: "none" }}
-      >
-        <CockpitFrame />
-      </ShipMotionLayer>
-
-      {/* ===== LAYER 6 (z:30) — Left + Right glass panels ===== */}
-      <LeftPanel />
-      <RightPanel />
-
-      {/* ===== LAYER 7 (z:35) — Weapon deck ===== */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 35,
-          pointerEvents: "none",
-        }}
-      >
-        <WeaponDeck />
-      </div>
-
-      {/* ===== LAYER 8 (z:40) — HUD interactive controls (SCAN, CMD, CLR) ===== */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 40,
-          pointerEvents: "none",
-        }}
-      >
-        <HudControls />
-      </div>
-
-      {/* ===== LAYER 9 (z:45) — QA checkpoint markers ===== */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 45,
-          pointerEvents: "none",
-        }}
-      >
-        <CheckpointMarkers />
-      </div>
-
-      {/* ===== LAYER 10 (z:50) — Smoke test panel ===== */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 50,
-          pointerEvents: "none",
-        }}
-      >
-        <SmokeTestPanel />
-      </div>
-
-      {/* ===== LAYER 11 (z:60) — Command dashboard ===== */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          zIndex: 60,
-          pointerEvents: "none",
-        }}
-      >
-        <CommandDashboard />
-      </div>
-    </div>
-  );
+  return isPortrait ? <PortraitStage /> : <LandscapeStage />;
 }

@@ -53,6 +53,9 @@ interface DashboardStore {
   shipStatus: ShipStatus;
   alerts: Alert[];
   logs: LogEntry[];
+  // Portrait drawer state
+  portraitDrawerOpen: boolean;
+  portraitDrawerTab: string;
   openDashboard: (tab?: DashboardTab) => void;
   closeDashboard: () => void;
   setTab: (tab: DashboardTab) => void;
@@ -61,6 +64,9 @@ interface DashboardStore {
   addAlert: (alert: Omit<Alert, "id" | "acknowledged">) => void;
   acknowledgeAlert: (id: string) => void;
   clearAlerts: () => void;
+  openPortraitDrawer: (tab?: string) => void;
+  closePortraitDrawer: () => void;
+  setPortraitDrawerTab: (tab: string) => void;
 }
 
 const MOCK_SHIP: ShipStatus = {
@@ -211,6 +217,8 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
   shipStatus: MOCK_SHIP,
   alerts: MOCK_ALERTS,
   logs: MOCK_LOGS,
+  portraitDrawerOpen: false,
+  portraitDrawerTab: "command",
 
   openDashboard: (tab) =>
     set((s) => ({
@@ -259,4 +267,14 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
     })),
 
   clearAlerts: () => set({ alerts: [] }),
+
+  openPortraitDrawer: (tab) =>
+    set((s) => ({
+      portraitDrawerOpen: true,
+      portraitDrawerTab: tab ?? s.portraitDrawerTab,
+    })),
+
+  closePortraitDrawer: () => set({ portraitDrawerOpen: false }),
+
+  setPortraitDrawerTab: (tab) => set({ portraitDrawerTab: tab }),
 }));

@@ -65,7 +65,6 @@ function WeaponSelectButton({
           : "none",
       }}
     >
-      {/* Weapon name */}
       <div
         style={{
           fontSize: 7,
@@ -80,7 +79,6 @@ function WeaponSelectButton({
         {weapon.shortLabel}
       </div>
 
-      {/* Status */}
       <div
         style={{
           fontSize: 7,
@@ -99,7 +97,6 @@ function WeaponSelectButton({
         {engaged ? "ENGAGED" : ready ? "READY" : "COOLDOWN"}
       </div>
 
-      {/* Cooldown bar */}
       <div
         style={{
           width: "100%",
@@ -136,7 +133,14 @@ function WeaponSelectButton({
   );
 }
 
-export default function WeaponDeck() {
+interface WeaponDeckProps {
+  /** Portrait mode: render only screen flash overlays, not the full weapon UI */
+  portraitFlashOnly?: boolean;
+}
+
+export default function WeaponDeck({
+  portraitFlashOnly = false,
+}: WeaponDeckProps) {
   const selectedNode = useTacticalStore((s) => s.selectedNode);
   const weapons = useWeaponsStore((s) => s.weapons);
   const selectedWeaponId = useWeaponsStore((s) => s.selectedWeaponId);
@@ -158,9 +162,9 @@ export default function WeaponDeck() {
         ? "rgba(80,160,255,0.12)"
         : "rgba(0,255,180,0.08)";
 
-  return (
+  // In portrait mode, only render the flash overlay divs (they are full-screen and z-independent)
+  const flashOverlays = (
     <>
-      {/* Screen flash overlays */}
       {screenFlash && (
         <div
           style={{
@@ -197,6 +201,25 @@ export default function WeaponDeck() {
           }}
         />
       )}
+    </>
+  );
+
+  if (portraitFlashOnly) {
+    return (
+      <>
+        {flashOverlays}
+        <style>{`
+          @keyframes weaponFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+          @keyframes empFlicker { 0%,100%{opacity:1}10%{opacity:0.3}20%{opacity:0.9}30%{opacity:0.2}40%{opacity:0.8}60%{opacity:0.5}80%{opacity:0.2} }
+          @keyframes shieldFlash { 0%{opacity:1}30%{opacity:0.6}100%{opacity:0} }
+        `}</style>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {flashOverlays}
 
       {/* No-target hint */}
       {!visible && (
@@ -233,7 +256,6 @@ export default function WeaponDeck() {
           }}
         >
           <div style={{ ...GLASS, padding: "10px 14px 12px" }}>
-            {/* Lock label */}
             <div
               style={{
                 textAlign: "center",
@@ -252,14 +274,7 @@ export default function WeaponDeck() {
                 : `▸ TARGET LOCKED — ${selectedNode}`}
             </div>
 
-            {/* Weapon selector row */}
-            <div
-              style={{
-                display: "flex",
-                gap: 5,
-                marginBottom: 8,
-              }}
-            >
+            <div style={{ display: "flex", gap: 5, marginBottom: 8 }}>
               {weapons.map((weapon) => (
                 <WeaponSelectButton
                   key={weapon.id}
@@ -270,7 +285,6 @@ export default function WeaponDeck() {
               ))}
             </div>
 
-            {/* LAUNCH BUTTON */}
             <button
               type="button"
               onClick={fireSelected}
@@ -305,7 +319,6 @@ export default function WeaponDeck() {
               ⚡ LAUNCH
             </button>
 
-            {/* Bottom accent line */}
             <div
               style={{
                 marginTop: 8,

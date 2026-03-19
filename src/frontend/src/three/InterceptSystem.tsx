@@ -10,7 +10,16 @@ export default function InterceptSystem() {
     if (!firingEffect.targetId.startsWith("THREAT-")) return;
 
     const { interceptThreat } = useThreatStore.getState();
-    interceptThreat(firingEffect.targetId, firingEffect.type);
+    // Missile is treated as railgun-level damage for intercept purposes
+    const interceptType =
+      firingEffect.type === "missile" ? "railgun" : firingEffect.type;
+    if (
+      interceptType === "pulse" ||
+      interceptType === "railgun" ||
+      interceptType === "emp"
+    ) {
+      interceptThreat(firingEffect.targetId, interceptType);
+    }
   }, [firingEffect]);
 
   return null;

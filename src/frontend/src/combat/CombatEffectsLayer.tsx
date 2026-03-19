@@ -3,7 +3,12 @@ import * as THREE from "three";
 import { NODE_IDS, NODE_POSITIONS, latLngToVec3 } from "../GlobeCore";
 import DestructionEffects from "./DestructionEffects";
 import { EMPImpact, PulseImpact, RailImpact } from "./ImpactEffects";
-import { EMPWave, PulseBolt, RailSlug } from "./ProjectileSystem";
+import {
+  EMPWave,
+  MissileTracer,
+  PulseBolt,
+  RailSlug,
+} from "./ProjectileSystem";
 import { useCombatState } from "./useCombatState";
 import { useWeaponsStore } from "./useWeapons";
 
@@ -34,10 +39,8 @@ export default function CombatEffectsLayer() {
 
   return (
     <group>
-      {/* Destruction effects always mounted — self-manages visibility */}
       <DestructionEffects />
 
-      {/* Active firing projectile + impact */}
       {firingEffect && targetPos && (
         <>
           {firingEffect.type === "pulse" && (
@@ -49,8 +52,10 @@ export default function CombatEffectsLayer() {
           {firingEffect.type === "emp" && (
             <EMPWave targetPos={targetPos} progress={elapsed} />
           )}
+          {firingEffect.type === "missile" && (
+            <MissileTracer targetPos={targetPos} progress={elapsed} />
+          )}
 
-          {/* Impact effects — render in same group when near target */}
           {elapsed >= 0.75 && (
             <>
               {firingEffect.type === "pulse" && (
@@ -61,6 +66,9 @@ export default function CombatEffectsLayer() {
               )}
               {firingEffect.type === "emp" && (
                 <EMPImpact targetPos={targetPos} progress={elapsed} />
+              )}
+              {firingEffect.type === "missile" && (
+                <PulseImpact targetPos={targetPos} progress={elapsed} />
               )}
             </>
           )}

@@ -1,8 +1,10 @@
 import { create } from "zustand";
 
+export type WeaponType = "pulse" | "railgun" | "emp" | "missile";
+
 export interface FiringEffect {
   weaponId: string;
-  type: "pulse" | "railgun" | "emp";
+  type: WeaponType;
   targetId: string;
   startTime: number;
   duration: number;
@@ -10,7 +12,7 @@ export interface FiringEffect {
 
 export interface CameraShake {
   intensity: number;
-  weaponType: "pulse" | "railgun" | "emp";
+  weaponType: WeaponType;
   startTime: number;
   duration: number;
 }
@@ -18,7 +20,7 @@ export interface CameraShake {
 export interface DestructionEvent {
   targetId: string;
   startTime: number;
-  weaponType: "pulse" | "railgun" | "emp";
+  weaponType: WeaponType;
 }
 
 interface CombatStateStore {

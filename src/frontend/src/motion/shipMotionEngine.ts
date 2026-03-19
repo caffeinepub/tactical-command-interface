@@ -1,5 +1,5 @@
 // Ship motion engine — RAF-based, no React state
-// Updates registered DOM layers directly via transform
+import type { WeaponType } from "../combat/useCombatState";
 
 let swayX = 0;
 let swayY = 0;
@@ -108,10 +108,7 @@ export function registerMotionLayer(
   };
 }
 
-export function triggerBattleJolt(
-  weaponType: "pulse" | "railgun" | "emp",
-  isImpact = false,
-) {
+export function triggerBattleJolt(weaponType: WeaponType, isImpact = false) {
   const angle = Math.random() * Math.PI * 2;
   let power: number;
 
@@ -119,6 +116,8 @@ export function triggerBattleJolt(
     power = rand(5, 15);
   } else if (weaponType === "railgun") {
     power = rand(7, 17);
+  } else if (weaponType === "missile") {
+    power = rand(6, 14);
   } else if (weaponType === "emp") {
     power = rand(5, 13);
   } else {
