@@ -23,9 +23,11 @@ export interface ShipStatus {
 
 export interface Alert {
   id: string;
-  level: "WARN" | "CRITICAL" | "INFO";
+  level: "INFO" | "WARNING" | "CRITICAL";
+  title: string;
   message: string;
   timestamp: string;
+  acknowledged: boolean;
 }
 
 export interface LogEntry {
@@ -61,22 +63,57 @@ const MOCK_SHIP: ShipStatus = {
 const MOCK_ALERTS: Alert[] = [
   {
     id: "a1",
-    level: "WARN",
+    level: "CRITICAL",
+    title: "HULL BREACH DETECTED",
     message:
-      "Anomaly detected at grid 14-C — CLASS II gravitational distortion",
-    timestamp: "04:12:38",
+      "Micro-fracture event on deck 7 — section 14-C reporting atmospheric loss. Emergency bulkheads engaged. Repair drones dispatched.",
+    timestamp: "04:14:02",
+    acknowledged: false,
   },
   {
     id: "a2",
-    level: "WARN",
-    message: "Shield emitter #3 flux instability — resonance drift 0.4%",
-    timestamp: "04:09:11",
+    level: "WARNING",
+    title: "GRAVITATIONAL ANOMALY",
+    message:
+      "CLASS II gravitational distortion at grid 14-C. Drift trajectory calculated. Course correction recommended within 12 minutes.",
+    timestamp: "04:12:38",
+    acknowledged: false,
   },
   {
     id: "a3",
+    level: "WARNING",
+    title: "SHIELD EMITTER FAULT",
+    message:
+      "Emitter #3 flux instability — resonance drift at 0.4% above nominal. Backup emitter online. Monitor for further degradation.",
+    timestamp: "04:09:11",
+    acknowledged: false,
+  },
+  {
+    id: "a4",
     level: "INFO",
-    message: "Jump drive cooldown active — T-MINUS 00:08:32 to window",
+    title: "JUMP DRIVE COOLDOWN",
+    message:
+      "Jump drive cooldown active. Next available jump window in T-MINUS 00:08:32. Standby mode engaged. All nav systems nominal.",
     timestamp: "04:07:55",
+    acknowledged: true,
+  },
+  {
+    id: "a5",
+    level: "WARNING",
+    title: "SENSOR ARRAY DEGRADED",
+    message:
+      "Long-range sensor array operating at 73% capacity. Solar interference from ALPHA-7 primary. Estimated restoration: 00:04:10.",
+    timestamp: "04:06:30",
+    acknowledged: false,
+  },
+  {
+    id: "a6",
+    level: "INFO",
+    title: "AUTOMATED SCAN COMPLETE",
+    message:
+      "Scheduled sector sweep finished. 14 nodes catalogued, 2 flagged for follow-up. No hostile contacts detected within range.",
+    timestamp: "04:04:19",
+    acknowledged: true,
   },
 ];
 

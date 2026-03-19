@@ -1,4 +1,97 @@
+import { useEffect, useState } from "react";
 import HudReadout from "./HudReadout";
+import { useThreatStore } from "./combat/useThreatStore";
+import type { ThreatStatus } from "./combat/useThreatStore";
+
+const STATUS_LABELS: Partial<Record<ThreatStatus, string>> = {
+  INCOMING: "INCOMING OBJECT",
+  IMPACT_RISK: "IMPACT RISK",
+  PRIORITY_TARGET: "PRIORITY TARGET",
+  INTERCEPT_WINDOW: "INTERCEPT WINDOW",
+};
+
+const STATUS_COLORS: Partial<Record<ThreatStatus, string>> = {
+  INCOMING: "rgba(255,160,0,0.9)",
+  IMPACT_RISK: "rgba(255,100,0,0.95)",
+  PRIORITY_TARGET: "rgba(255,50,0,0.95)",
+  INTERCEPT_WINDOW: "rgba(255,0,0,1.0)",
+};
+
+function ThreatWarningBanner() {
+  const threats = useThreatStore((s) => s.threats);
+  const [pulse, setPulse] = useState(true);
+
+  const activeThreats = threats.filter(
+    (t) => t.status !== "DESTROYED" && t.status !== "SURVIVED",
+  );
+
+  const worstPriority: ThreatStatus[] = [
+    "INTERCEPT_WINDOW",
+    "PRIORITY_TARGET",
+    "IMPACT_RISK",
+    "INCOMING",
+  ];
+  const worst = worstPriority.find((s) =>
+    activeThreats.some((t) => t.status === s),
+  );
+
+  useEffect(() => {
+    if (!worst) return;
+    const interval = setInterval(() => setPulse((p) => !p), 500);
+    return () => clearInterval(interval);
+  }, [worst]);
+
+  if (!worst || activeThreats.length === 0) return null;
+
+  const label = STATUS_LABELS[worst] ?? worst;
+  const color = STATUS_COLORS[worst] ?? "rgba(255,100,0,0.9)";
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "7%",
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 20,
+        pointerEvents: "none",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+      }}
+    >
+      <div
+        style={{
+          background: pulse ? "rgba(180,20,0,0.22)" : "rgba(80,8,0,0.15)",
+          border: `1px solid ${color}`,
+          borderRadius: 2,
+          padding: "4px 18px",
+          fontFamily: "monospace",
+          fontSize: 11,
+          letterSpacing: "0.22em",
+          color,
+          transition: "background 0.25s",
+          boxShadow: pulse ? `0 0 12px ${color}, 0 0 4px ${color}` : "none",
+          whiteSpace: "nowrap",
+        }}
+      >
+        ⚠ A.E.G.I.S — {label}
+      </div>
+      <div
+        style={{
+          fontFamily: "monospace",
+          fontSize: 9,
+          color: "rgba(255,180,100,0.7)",
+          letterSpacing: "0.18em",
+        }}
+      >
+        {activeThreats.length} OBJECT{activeThreats.length > 1 ? "S" : ""}{" "}
+        TRACKED
+      </div>
+    </div>
+  );
+}
 
 export default function HudOverlay() {
   const W = 1440;
@@ -339,6 +432,7 @@ export default function HudOverlay() {
 
       {/* HUD READOUT — interactive, sits above SVG */}
       <HudReadout />
+      <ThreatWarningBanner />
     </div>
   );
 }

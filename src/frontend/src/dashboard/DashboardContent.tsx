@@ -41,6 +41,10 @@ const DashboardContent = memo(function DashboardContent() {
         overflowX: "hidden",
         scrollbarWidth: "thin",
         scrollbarColor: "rgba(0,180,255,0.2) transparent",
+        width: "100%",
+        minWidth: 0,
+        maxWidth: "100%",
+        boxSizing: "border-box",
       }}
     >
       <Suspense fallback={<PanelFallback />}>

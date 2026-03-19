@@ -5,6 +5,7 @@ interface Mission {
   title: string;
   priority: "PRIMARY" | "SECONDARY";
   status: "ACTIVE" | "PENDING" | "COMPLETE" | "FAILED";
+  type: string;
   threat: "HIGH" | "MODERATE" | "LOW";
   reward: string;
   timer?: string;
@@ -16,6 +17,7 @@ const MISSIONS: Mission[] = [
     title: "SECURE SECTOR DELTA",
     priority: "PRIMARY",
     status: "ACTIVE",
+    type: "COMBAT OP",
     threat: "HIGH",
     reward: "INTEL PACKAGE",
     timer: "14:22",
@@ -25,6 +27,7 @@ const MISSIONS: Mission[] = [
     title: "SCAN ANOMALY CLUSTER",
     priority: "SECONDARY",
     status: "ACTIVE",
+    type: "RECON",
     threat: "MODERATE",
     reward: "NAV DATA",
   },
@@ -33,8 +36,18 @@ const MISSIONS: Mission[] = [
     title: "ESCORT CONVOY R-7",
     priority: "SECONDARY",
     status: "PENDING",
+    type: "ESCORT",
     threat: "LOW",
     reward: "FUEL CREDIT",
+  },
+  {
+    id: "m4",
+    title: "EXTRACT BEACON DATA",
+    priority: "SECONDARY",
+    status: "FAILED",
+    type: "SALVAGE",
+    threat: "LOW",
+    reward: "COORDINATES",
   },
 ];
 
@@ -77,8 +90,19 @@ const MissionsPanel = memo(function MissionsPanel() {
             data-ocid={`missions.item.${i + 1}`}
             style={{
               padding: "10px 12px",
-              border: `1px solid ${isPrimary ? "rgba(0,255,200,0.4)" : "rgba(0,220,255,0.18)"}`,
-              background: isPrimary ? "rgba(0,25,45,0.7)" : "rgba(0,10,25,0.5)",
+              border: `1px solid ${
+                m.status === "FAILED"
+                  ? "rgba(255,50,60,0.25)"
+                  : isPrimary
+                    ? "rgba(0,255,200,0.4)"
+                    : "rgba(0,220,255,0.18)"
+              }`,
+              background:
+                m.status === "FAILED"
+                  ? "rgba(20,5,5,0.5)"
+                  : isPrimary
+                    ? "rgba(0,25,45,0.7)"
+                    : "rgba(0,10,25,0.5)",
               marginBottom: 8,
               boxShadow: isPrimary ? "0 0 14px rgba(0,255,200,0.1)" : "none",
               position: "relative",
@@ -107,23 +131,46 @@ const MissionsPanel = memo(function MissionsPanel() {
               }}
             >
               <div>
-                <span
+                <div
                   style={{
-                    fontSize: 8,
-                    fontFamily: "monospace",
-                    color: isPrimary ? "#00ffcc" : "rgba(0,180,255,0.5)",
-                    letterSpacing: "0.15em",
-                    display: "block",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
                     marginBottom: 2,
                   }}
                 >
-                  {m.priority}
-                </span>
+                  <span
+                    style={{
+                      fontSize: 8,
+                      fontFamily: "monospace",
+                      color: isPrimary ? "#00ffcc" : "rgba(0,180,255,0.5)",
+                      letterSpacing: "0.15em",
+                    }}
+                  >
+                    {m.priority}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 8,
+                      fontFamily: "monospace",
+                      letterSpacing: "0.1em",
+                      color: "rgba(0,200,255,0.6)",
+                      border: "1px solid rgba(0,200,255,0.2)",
+                      padding: "1px 5px",
+                      background: "rgba(0,20,40,0.5)",
+                    }}
+                  >
+                    {m.type}
+                  </span>
+                </div>
                 <span
                   style={{
                     fontSize: 11,
                     fontFamily: "monospace",
-                    color: "rgba(0,220,255,0.9)",
+                    color:
+                      m.status === "FAILED"
+                        ? "rgba(255,80,80,0.7)"
+                        : "rgba(0,220,255,0.9)",
                     letterSpacing: "0.08em",
                     fontWeight: isPrimary ? 700 : 500,
                   }}

@@ -18,15 +18,23 @@ function hashId(id: string): number[] {
   return [Math.abs(h1) % 101, Math.abs(h2) % 101, Math.abs(h3) % 101];
 }
 
+export type ControlMode = "orbit" | "turret";
+
 interface TacticalStore {
   selectedNode: string | null;
   scanMode: boolean;
   nodeData: NodeData | null;
   smokeTestResults: Record<string, boolean> | null;
+  controlMode: ControlMode;
+  hoveredCoords: { lat: number; lng: number; sector: string } | null;
   selectNode: (id: string) => void;
   clearNode: () => void;
   toggleScanMode: () => void;
   setSmokeResults: (r: Record<string, boolean>) => void;
+  setControlMode: (mode: ControlMode) => void;
+  setHoveredCoords: (
+    coords: { lat: number; lng: number; sector: string } | null,
+  ) => void;
 }
 
 export const useTacticalStore = create<TacticalStore>((set) => ({
@@ -34,6 +42,8 @@ export const useTacticalStore = create<TacticalStore>((set) => ({
   scanMode: false,
   nodeData: null,
   smokeTestResults: null,
+  controlMode: "orbit",
+  hoveredCoords: null,
 
   selectNode: (id: string) => {
     const [energy, signal, stability] = hashId(id);
@@ -45,4 +55,8 @@ export const useTacticalStore = create<TacticalStore>((set) => ({
   toggleScanMode: () => set((s) => ({ scanMode: !s.scanMode })),
 
   setSmokeResults: (r) => set({ smokeTestResults: r }),
+
+  setControlMode: (mode) => set({ controlMode: mode }),
+
+  setHoveredCoords: (coords) => set({ hoveredCoords: coords }),
 }));

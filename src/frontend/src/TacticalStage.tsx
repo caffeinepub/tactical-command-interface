@@ -1,62 +1,26 @@
-import { PointMaterial, Points } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type * as THREE from "three";
+import { Canvas } from "@react-three/fiber";
+import { useEffect, useRef, useState } from "react";
 import GlobeCore, { NODE_COUNT } from "./GlobeCore";
 import HudOverlay from "./HudOverlay";
 import SmokeTestPanel from "./SmokeTestPanel";
+import CockpitAmbientFx from "./cockpit/CockpitAmbientFx";
+import CockpitFrame from "./cockpit/CockpitFrame";
+import CombatEffectsLayer from "./combat/CombatEffectsLayer";
+import WeaponDeck from "./combat/WeaponDeck";
 import CommandDashboard from "./dashboard/CommandDashboard";
+import CoordinateDisplay from "./globe/CoordinateDisplay";
 import { runSmokeTests } from "./smokeTest";
+import CameraController from "./three/CameraController";
+import InterceptSystem from "./three/InterceptSystem";
+import SpaceBackground from "./three/SpaceBackground";
+import ThreatManager from "./three/ThreatManager";
 import { useTacticalStore } from "./useTacticalStore";
-
-function Starfield() {
-  const count = 800;
-  const positions = useMemo(() => {
-    const arr = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      arr[i * 3] = (Math.random() - 0.5) * 80;
-      arr[i * 3 + 1] = (Math.random() - 0.5) * 80;
-      arr[i * 3 + 2] = (Math.random() - 0.5) * 80 - 10;
-    }
-    return arr;
-  }, []);
-
-  return (
-    <Points positions={positions} stride={3} frustumCulled={false}>
-      <PointMaterial
-        transparent
-        color="#ffffff"
-        size={0.06}
-        sizeAttenuation
-        depthWrite={false}
-        opacity={0.85}
-      />
-    </Points>
-  );
-}
-
-function SceneWrapper() {
-  const groupRef = useRef<THREE.Group>(null!);
-
-  useFrame(() => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y += 0.0008;
-    }
-  });
-
-  return (
-    <group ref={groupRef}>
-      <GlobeCore />
-    </group>
-  );
-}
 
 export default function TacticalStage() {
   const canvasMountedRef = useRef(false);
   const [, forceUpdate] = useState(0);
   const setSmokeResults = useTacticalStore((s) => s.setSmokeResults);
 
-  // Handle resize + orientation change
   useEffect(() => {
     const handleResize = () => forceUpdate((n) => n + 1);
     window.addEventListener("resize", handleResize);
@@ -67,8 +31,6 @@ export default function TacticalStage() {
     };
   }, []);
 
-  // Run smoke tests after mount — intentionally run once, reading initial store state
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-once effect
   useEffect(() => {
     canvasMountedRef.current = true;
     const timer = setTimeout(() => {
@@ -89,6 +51,7 @@ export default function TacticalStage() {
       setSmokeResults(record);
     }, 500);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSmokeResults]);
 
   return (
@@ -101,26 +64,34 @@ export default function TacticalStage() {
       className="tactical-stage"
     >
       <Canvas
-        camera={{ position: [0, 1.5, 5], fov: 55 }}
+        camera={{ position: [0, 0, 5], fov: 52 }}
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(ellipse at center, #050a1a 0%, #000005 100%)",
+            "radial-gradient(ellipse at 50% 40%, #03071a 0%, #010208 65%, #000003 100%)",
         }}
         gl={{ antialias: true }}
       >
-        <ambientLight intensity={0.3} />
+        <ambientLight intensity={0.08} />
         <directionalLight
-          position={[4, 2, 2]}
-          intensity={1.2}
-          color="#fff8e0"
+          position={[5, 2, 3]}
+          intensity={1.8}
+          color="#fff5e0"
         />
-        <pointLight position={[-3, 2, 1]} intensity={0.5} color="#4080ff" />
-        <Starfield />
-        <SceneWrapper />
+        <pointLight position={[-4, -1, -2]} intensity={0.35} color="#1a3fff" />
+        <SpaceBackground />
+        <CameraController />
+        <GlobeCore />
+        <CombatEffectsLayer />
+        <ThreatManager />
+        <InterceptSystem />
       </Canvas>
       <HudOverlay />
+      <CoordinateDisplay />
+      <WeaponDeck />
+      <CockpitFrame />
+      <CockpitAmbientFx />
       <SmokeTestPanel />
       <CommandDashboard />
     </div>

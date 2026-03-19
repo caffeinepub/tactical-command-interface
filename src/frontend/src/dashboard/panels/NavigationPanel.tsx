@@ -7,13 +7,13 @@ interface NavField {
 }
 
 const NAV_DATA: NavField[] = [
-  { label: "HEADING", value: "247° NW" },
+  { label: "HEADING", value: "247° NW-BY-WEST" },
   { label: "SECTOR / GRID", value: "ALPHA-7 / 14-C" },
   { label: "WAYPOINT", value: "NEXUS STATION — 4.2 AU", highlight: true },
-  { label: "ROUTE STABILITY", value: "94% STABLE" },
+  { label: "ROUTE STABILITY", value: "94% — STABLE" },
   { label: "TRAVEL STATE", value: "SUBLIGHT CRUISE" },
   { label: "ANOMALY PROXIMITY", value: "1.8 AU — CLASS II" },
-  { label: "BLACK HOLE RISK", value: "LOW — DRIFT 0.003°" },
+  { label: "BLACK HOLE RISK", value: "LOW / DRIFT 0.003°" },
 ];
 
 function useCountdown(seconds: number) {
@@ -61,8 +61,12 @@ const NavigationPanel = memo(function NavigationPanel() {
             key={f.label}
             style={{
               padding: "8px",
-              border: "1px solid rgba(0,220,255,0.15)",
-              background: "rgba(0,10,25,0.5)",
+              border: `1px solid ${
+                f.highlight ? "rgba(0,255,200,0.25)" : "rgba(0,220,255,0.15)"
+              }`,
+              background: f.highlight
+                ? "rgba(0,20,15,0.5)"
+                : "rgba(0,10,25,0.5)",
             }}
           >
             <div
@@ -72,6 +76,9 @@ const NavigationPanel = memo(function NavigationPanel() {
                 color: "rgba(0,180,255,0.5)",
                 letterSpacing: "0.15em",
                 marginBottom: 3,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
               {f.label}
@@ -83,14 +90,19 @@ const NavigationPanel = memo(function NavigationPanel() {
                 color: f.highlight ? "#00ffcc" : "rgba(0,220,255,0.9)",
                 letterSpacing: "0.08em",
                 fontWeight: f.highlight ? 700 : 400,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
               {f.value}
             </div>
           </div>
         ))}
+        {/* Jump window — full-width spanning both columns */}
         <div
           style={{
+            gridColumn: "1 / -1",
             padding: "8px",
             border: "1px solid rgba(0,255,120,0.25)",
             background: "rgba(0,20,10,0.5)",
@@ -207,12 +219,32 @@ const NavigationPanel = memo(function NavigationPanel() {
                 fontFamily: "monospace",
                 color: lbl === "◉ HERE" ? "#00e8ff" : "rgba(0,180,255,0.4)",
                 letterSpacing: "0.08em",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: "25%",
               }}
             >
               {lbl}
             </span>
           ))}
         </div>
+      </div>
+
+      {/* Anomaly alert */}
+      <div
+        style={{
+          padding: "8px 10px",
+          border: "1px solid rgba(255,170,0,0.25)",
+          background: "rgba(30,15,0,0.4)",
+          fontSize: 9,
+          fontFamily: "monospace",
+          color: "#ffaa00",
+          letterSpacing: "0.1em",
+          marginTop: 10,
+        }}
+      >
+        ⚠ CLASS II GRAVITATIONAL DISTORTION AT 14-C — COURSE CORRECTION ADVISED
       </div>
     </div>
   );
