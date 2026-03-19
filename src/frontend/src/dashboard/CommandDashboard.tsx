@@ -80,6 +80,8 @@ export default function CommandDashboard() {
           background: "rgba(0,8,20,0.99)",
           display: "flex",
           flexDirection: "column",
+          height: "100dvh",
+          maxHeight: "100dvh",
           overflow: "hidden",
           animation: "fadeInUp 0.25s ease",
         }}
@@ -92,12 +94,16 @@ export default function CommandDashboard() {
         `}</style>
         <DashboardTopBar onClose={closeDashboard} />
         <DashboardSidebar horizontal />
-        <DashboardContent />
+        <div
+          style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}
+        >
+          <DashboardContent />
+        </div>
       </div>
     );
   }
 
-  // Mobile landscape: full screen with horizontal tabs
+  // Mobile landscape: fixed full screen, internal scrolling
   return (
     <div
       data-ocid="dashboard.panel"
@@ -108,15 +114,29 @@ export default function CommandDashboard() {
         background: "rgba(0,8,20,0.99)",
         display: "flex",
         flexDirection: "column",
+        height: "100dvh",
+        maxHeight: "100dvh",
         overflow: "hidden",
       }}
     >
-      <DashboardTopBar onClose={closeDashboard} />
+      <div style={{ flexShrink: 0 }}>
+        <DashboardTopBar onClose={closeDashboard} />
+      </div>
       <div
         style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}
       >
-        <DashboardSidebar />
-        <DashboardContent />
+        <div
+          style={{
+            width: 52,
+            flexShrink: 0,
+            overflowY: "auto",
+            overflowX: "hidden",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          <DashboardSidebar />
+        </div>
+        <DashboardContent landscape />
       </div>
     </div>
   );

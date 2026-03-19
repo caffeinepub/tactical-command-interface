@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import * as THREE from "three";
 
+// Fresnel rim glow — soft cyan/blue atmospheric edge, no ring look
 const VERT = `
 varying vec3 vNormal;
 varying vec3 vViewDir;
@@ -18,10 +19,12 @@ varying vec3 vNormal;
 varying vec3 vViewDir;
 uniform float time;
 void main() {
-  float fresnel = pow(1.0 - abs(dot(vNormal, vViewDir)), 3.2);
-  float pulse = 1.0 + 0.06 * sin(time * 0.5);
-  vec3 color = vec3(0.15, 0.55, 1.0);
-  gl_FragColor = vec4(color * fresnel * pulse, fresnel * 0.75);
+  float fresnel = pow(1.0 - abs(dot(vNormal, vViewDir)), 2.8);
+  float pulse = 1.0 + 0.05 * sin(time * 0.4);
+  // Warm cyan with slight blue shift for premium sci-fi feel
+  vec3 color = vec3(0.05, 0.65, 1.0);
+  float alpha = fresnel * 0.85 * pulse;
+  gl_FragColor = vec4(color * fresnel * pulse, alpha);
 }
 `;
 
@@ -36,9 +39,9 @@ export default function AtmosphereGlow() {
 
   return (
     <>
-      {/* Fresnel atmosphere glow */}
+      {/* Primary fresnel rim glow */}
       <mesh>
-        <sphereGeometry args={[1.72, 48, 48]} />
+        <sphereGeometry args={[1.68, 48, 48]} />
         <shaderMaterial
           ref={outerRef}
           vertexShader={VERT}
@@ -50,14 +53,14 @@ export default function AtmosphereGlow() {
           uniforms={{ time: { value: 0 } }}
         />
       </mesh>
-      {/* Inner haze */}
+      {/* Tight inner haze */}
       <mesh>
-        <sphereGeometry args={[1.58, 48, 48]} />
+        <sphereGeometry args={[1.54, 48, 48]} />
         <meshBasicMaterial
-          color="#0088ff"
+          color="#0099ff"
           side={THREE.BackSide}
           transparent
-          opacity={0.07}
+          opacity={0.09}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />

@@ -250,8 +250,8 @@ export function buildHexTexture(): THREE.CanvasTexture {
   const hexHeight = Math.sqrt(3) * hexSize;
   const centers: [number, number][] = [];
 
-  ctx.strokeStyle = "rgba(0,210,255,0.22)";
-  ctx.lineWidth = 0.6;
+  ctx.strokeStyle = "rgba(0,220,255,0.42)";
+  ctx.lineWidth = 0.7;
 
   function drawHex(cx: number, cy: number) {
     ctx.beginPath();
@@ -276,20 +276,35 @@ export function buildHexTexture(): THREE.CanvasTexture {
   }
 
   const shuffled = [...centers].sort(() => Math.random() - 0.5);
-  const tier1Count = Math.floor(centers.length * 0.05);
-  ctx.strokeStyle = "rgba(0,255,255,0.55)";
-  ctx.lineWidth = 1.2;
+  const tier1Count = Math.floor(centers.length * 0.08);
+  ctx.strokeStyle = "rgba(0,255,255,0.80)";
+  ctx.lineWidth = 1.4;
   for (let g = 0; g < tier1Count; g++) {
     const [x, y] = shuffled[g];
     drawHex(x, y);
   }
 
-  const tier2Count = Math.floor(centers.length * 0.02);
-  ctx.strokeStyle = "rgba(100,255,255,0.85)";
-  ctx.lineWidth = 1.6;
+  const tier2Count = Math.floor(centers.length * 0.035);
+  ctx.strokeStyle = "rgba(120,255,255,1.0)";
+  ctx.lineWidth = 2.0;
   for (let g = tier1Count; g < tier1Count + tier2Count; g++) {
     const [x, y] = shuffled[g];
     drawHex(x, y);
+    // subtle fill glow on hot hexes
+    const gfill = ctx.createRadialGradient(x, y, 0, x, y, hexSize * 0.8);
+    gfill.addColorStop(0, "rgba(0,255,255,0.07)");
+    gfill.addColorStop(1, "rgba(0,255,255,0)");
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (60 * i - 30);
+      const px = x + hexSize * Math.cos(angle);
+      const py = y + hexSize * Math.sin(angle);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = gfill;
+    ctx.fill();
   }
 
   ctx.strokeStyle = "rgba(0,180,255,0.06)";

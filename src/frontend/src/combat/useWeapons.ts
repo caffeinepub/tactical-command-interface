@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useThreatStore } from "../combat/useThreatStore";
+import { triggerBattleJolt } from "../motion/shipMotionEngine";
 import { useTacticalStore } from "../useTacticalStore";
 import { useCombatState } from "./useCombatState";
 
@@ -87,7 +88,6 @@ export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
       duration,
     });
 
-    // Camera shake on fire
     setCameraShake({
       intensity:
         weapon.type === "railgun" ? 0.06 : weapon.type === "emp" ? 0.04 : 0.025,
@@ -96,6 +96,9 @@ export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
       duration:
         weapon.type === "railgun" ? 400 : weapon.type === "emp" ? 350 : 250,
     });
+
+    // Ship motion jolt on fire
+    triggerBattleJolt(weapon.type);
 
     setTargetHitFlash(true);
     setScreenFlash(true);
@@ -109,12 +112,10 @@ export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
       setTimeout(() => setEmpStunnedNode(null), 3000);
     }
 
-    // Intercept threat if targeting one
     if (selectedNode.startsWith("THREAT-")) {
       const { interceptThreat } = useThreatStore.getState();
       interceptThreat(selectedNode, weapon.type);
 
-      // Check if destroyed after intercept
       const updatedThreat = useThreatStore
         .getState()
         .threats.find((t) => t.id === selectedNode);
@@ -124,6 +125,8 @@ export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
           startTime: performance.now(),
           weaponType: weapon.type,
         });
+        // Impact/destruction jolt
+        triggerBattleJolt(weapon.type, true);
       }
     }
 

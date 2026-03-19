@@ -63,6 +63,7 @@ const LogsPanel = memo(function LogsPanel() {
               padding: "6px 0",
               borderBottom: "1px solid rgba(0,220,255,0.06)",
               alignItems: "baseline",
+              flexWrap: "wrap",
             }}
           >
             <span
@@ -91,6 +92,19 @@ const LogsPanel = memo(function LogsPanel() {
             >
               {entry.category}
             </span>
+            {entry.source && (
+              <span
+                style={{
+                  fontSize: 7,
+                  color: "rgba(0,180,255,0.3)",
+                  letterSpacing: "0.08em",
+                  fontFamily: "monospace",
+                  flexShrink: 0,
+                }}
+              >
+                [{entry.source}]
+              </span>
+            )}
             <span
               style={{
                 fontSize: 9,
@@ -98,6 +112,8 @@ const LogsPanel = memo(function LogsPanel() {
                 color: "rgba(0,220,255,0.7)",
                 letterSpacing: "0.06em",
                 lineHeight: 1.4,
+                flex: 1,
+                minWidth: 0,
               }}
             >
               {entry.message}

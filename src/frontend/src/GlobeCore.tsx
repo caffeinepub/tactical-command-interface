@@ -164,15 +164,15 @@ function HexShell({ hexTexture }: { hexTexture: THREE.CanvasTexture }) {
     if (mesh) {
       const mat = mesh.material as THREE.MeshBasicMaterial;
       if (scanMode) {
-        mat.opacity = 0.5 + 0.22 * Math.sin(clock.elapsedTime * 3);
+        mat.opacity = 0.65 + 0.25 * Math.sin(clock.elapsedTime * 3);
       } else {
-        mat.opacity = 0.5;
+        mat.opacity = 0.65;
       }
     }
     const mesh2 = meshRef2.current;
     if (mesh2) {
       const mat2 = mesh2.material as THREE.MeshBasicMaterial;
-      mat2.opacity = 0.08 + 0.07 * Math.sin(clock.elapsedTime * 2.1 + 1.0);
+      mat2.opacity = 0.14 + 0.1 * Math.sin(clock.elapsedTime * 2.1 + 1.0);
     }
   });
 
@@ -183,7 +183,7 @@ function HexShell({ hexTexture }: { hexTexture: THREE.CanvasTexture }) {
         <meshBasicMaterial
           map={hexTexture}
           transparent
-          opacity={0.5}
+          opacity={0.65}
           depthWrite={false}
         />
       </mesh>
@@ -192,32 +192,12 @@ function HexShell({ hexTexture }: { hexTexture: THREE.CanvasTexture }) {
         <meshBasicMaterial
           map={hexTexture}
           transparent
-          opacity={0.08}
+          opacity={0.14}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
       </mesh>
     </>
-  );
-}
-
-function EquatorialRing() {
-  const meshRef = useRef<THREE.Mesh>(null!);
-  useFrame(({ clock }) => {
-    const mat = meshRef.current?.material as THREE.MeshBasicMaterial;
-    if (mat) mat.opacity = 0.25 + 0.1 * Math.sin(clock.elapsedTime * 0.9);
-  });
-  return (
-    <mesh ref={meshRef} rotation={[Math.PI / 2, 0, 0]}>
-      <torusGeometry args={[1.54, 0.003, 8, 120]} />
-      <meshBasicMaterial
-        color="#00ddff"
-        transparent
-        opacity={0.28}
-        blending={THREE.AdditiveBlending}
-        depthWrite={false}
-      />
-    </mesh>
   );
 }
 
@@ -331,7 +311,6 @@ export default function GlobeCore() {
       <CloudLayer cloudTexture={cloudTexture} />
       <AtmosphereGlow />
       <HexShell hexTexture={hexTexture} />
-      <EquatorialRing />
       <PolarAccent />
       <ScanSweep />
       <EnergyHotspot />

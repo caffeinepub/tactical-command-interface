@@ -30,7 +30,13 @@ function PanelFallback() {
   );
 }
 
-const DashboardContent = memo(function DashboardContent() {
+interface DashboardContentProps {
+  landscape?: boolean;
+}
+
+const DashboardContent = memo(function DashboardContent({
+  landscape,
+}: DashboardContentProps) {
   const { activeDashboardTab } = useDashboardStore();
 
   return (
@@ -39,12 +45,17 @@ const DashboardContent = memo(function DashboardContent() {
         flex: 1,
         overflowY: "auto",
         overflowX: "hidden",
+        minHeight: 0,
         scrollbarWidth: "thin",
         scrollbarColor: "rgba(0,180,255,0.2) transparent",
         width: "100%",
         minWidth: 0,
         maxWidth: "100%",
         boxSizing: "border-box",
+        WebkitOverflowScrolling: "touch",
+        overscrollBehavior: "contain",
+        touchAction: "pan-y",
+        ...(landscape ? { maxHeight: "100%" } : {}),
       }}
     >
       <Suspense fallback={<PanelFallback />}>

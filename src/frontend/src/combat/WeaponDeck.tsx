@@ -13,17 +13,15 @@ export default function WeaponDeck() {
 
   const visible = !!selectedNode;
 
-  // Pick flash color from active weapon
   const flashColor =
     firingEffect?.type === "emp"
-      ? "rgba(255,120,0,0.12)"
+      ? "rgba(255,120,0,0.10)"
       : firingEffect?.type === "railgun"
-        ? "rgba(80,160,255,0.15)"
-        : "rgba(0,255,180,0.10)";
+        ? "rgba(80,160,255,0.12)"
+        : "rgba(0,255,180,0.08)";
 
   return (
     <>
-      {/* Screen flash on fire */}
       {screenFlash && (
         <div
           style={{
@@ -31,85 +29,83 @@ export default function WeaponDeck() {
             inset: 0,
             background: flashColor,
             pointerEvents: "none",
-            zIndex: 50,
+            zIndex: 26,
             animation: "weaponFlash 0.12s ease-out forwards",
           }}
         />
       )}
-
-      {/* Shield hit flash */}
       {shieldHit && (
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(255,60,0,0.08)",
+            background: "rgba(255,60,0,0.07)",
             pointerEvents: "none",
-            zIndex: 51,
+            zIndex: 27,
             animation: "shieldFlash 0.4s ease-out forwards",
           }}
         />
       )}
-
-      {/* EMP stun overlay */}
       {empStunnedNode && (
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(255,80,0,0.04)",
+            background: "rgba(255,80,0,0.03)",
             pointerEvents: "none",
-            zIndex: 49,
+            zIndex: 26,
             animation: "empFlicker 3s ease-out forwards",
           }}
         />
       )}
 
-      {/* Heat distortion near weapon deck */}
+      {/* No-target hint */}
       <div
         style={{
           position: "absolute",
-          bottom: 80,
+          bottom: "clamp(7%, 9vh, 11%)",
           left: "50%",
           transform: "translateX(-50%)",
-          width: 200,
-          height: 80,
-          backdropFilter: firingEffect ? "blur(1.5px)" : "none",
-          opacity: firingEffect ? 0.4 : 0,
-          transition: "opacity 0.05s ease-out",
-          animation: firingEffect ? "heatFade 0.2s ease-out forwards" : "none",
+          zIndex: 25,
           pointerEvents: "none",
-          zIndex: 48,
-          borderRadius: "50% 50% 0 0",
-        }}
-      />
-
-      {/* Weapon deck panel */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: "clamp(70px, 11vw, 110px)",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 30,
-          pointerEvents: visible ? "auto" : "none",
-          opacity: visible ? 1 : 0,
-          transition: "opacity 0.35s ease, transform 0.35s ease",
-          transformOrigin: "bottom center",
+          fontFamily: "monospace",
+          fontSize: 8,
+          letterSpacing: "0.22em",
+          color: "rgba(0,180,255,0.28)",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          opacity: visible ? 0 : 1,
+          transition: "opacity 0.35s ease",
         }}
       >
-        {/* Target lock indicator */}
+        SELECT TARGET TO ENGAGE
+      </div>
+
+      {/* Weapon deck — docked into lower console */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "clamp(6%, 8vh, 10%)",
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 25,
+          pointerEvents: visible ? "auto" : "none",
+          opacity: visible ? 1 : 0,
+          transition: "opacity 0.3s ease",
+        }}
+      >
+        {/* Lock label */}
         <div
           style={{
             textAlign: "center",
-            marginBottom: "8px",
+            marginBottom: 5,
             fontFamily: "monospace",
-            fontSize: "9px",
-            letterSpacing: "0.25em",
-            color: empStunnedNode ? "#ff8800" : "rgba(0,220,255,0.7)",
+            fontSize: 8,
+            letterSpacing: "0.22em",
+            color: empStunnedNode ? "#ff8800" : "rgba(0,200,255,0.6)",
             textShadow: empStunnedNode
-              ? "0 0 8px #ff8800"
-              : "0 0 8px rgba(0,200,255,0.5)",
+              ? "0 0 6px #ff8800"
+              : "0 0 6px rgba(0,200,255,0.3)",
             animation: empStunnedNode
               ? "empBlink 0.4s ease-in-out infinite"
               : "none",
@@ -117,60 +113,34 @@ export default function WeaponDeck() {
         >
           {empStunnedNode
             ? `▸ ${selectedNode} — EMP STUNNED`
-            : `▸ TARGET LOCKED — ${selectedNode ?? ""}`}
+            : `▸ LOCKED — ${selectedNode ?? ""}`}
         </div>
 
         {/* Weapon buttons row */}
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            alignItems: "stretch",
-          }}
-        >
+        <div style={{ display: "flex", gap: 5, alignItems: "stretch" }}>
           {weapons.map((weapon) => (
             <WeaponButton key={weapon.id} weapon={weapon} />
           ))}
         </div>
 
-        {/* Bottom frame accent line */}
+        {/* Bottom accent */}
         <div
           style={{
-            marginTop: "6px",
+            marginTop: 4,
             height: "1px",
             background:
-              "linear-gradient(90deg, transparent, rgba(0,220,255,0.4), rgba(0,220,255,0.4), transparent)",
+              "linear-gradient(90deg, transparent, rgba(0,200,255,0.35), rgba(0,200,255,0.35), transparent)",
           }}
         />
       </div>
 
       <style>{`
-        @keyframes weaponFlash {
-          0% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @keyframes empFlicker {
-          0%, 100% { opacity: 1; }
-          10% { opacity: 0.3; }
-          20% { opacity: 0.9; }
-          30% { opacity: 0.2; }
-          40% { opacity: 0.8; }
-          60% { opacity: 0.5; }
-          80% { opacity: 0.2; }
-        }
-        @keyframes empBlink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-        @keyframes heatFade {
-          from { opacity: 0.4; filter: blur(1.5px); }
-          to   { opacity: 0;   filter: blur(0); }
-        }
-        @keyframes shieldFlash {
-          0%   { opacity: 1; }
-          30%  { opacity: 0.6; }
-          100% { opacity: 0; }
-        }
+        @keyframes weaponFlash { 0% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes empFlicker { 0%,100%{opacity:1}10%{opacity:0.3}20%{opacity:0.9}30%{opacity:0.2}40%{opacity:0.8}60%{opacity:0.5}80%{opacity:0.2} }
+        @keyframes empBlink { 0%,100%{opacity:1}50%{opacity:0.3} }
+        @keyframes shieldFlash { 0%{opacity:1}30%{opacity:0.6}100%{opacity:0} }
+        @keyframes engagedPulse { from{border-color:var(--wc,#00ffcc)}to{border-color:transparent} }
+        @keyframes engagedGlow { from{opacity:0.6}to{opacity:1} }
       `}</style>
     </>
   );

@@ -12,6 +12,7 @@ void main() {
 }
 `;
 
+// Brighter day side, cleaner terminator, better tactical contrast
 const FRAGMENT_SHADER = `
 uniform sampler2D dayTexture;
 uniform sampler2D nightTexture;
@@ -23,15 +24,23 @@ varying vec3 vNormal;
 void main() {
   vec3 sun = normalize(sunDirection);
   float dotNS = dot(vNormal, sun);
-  float blend = smoothstep(-0.12, 0.22, dotNS);
+  float blend = smoothstep(-0.08, 0.28, dotNS);
 
   vec4 dayColor = texture2D(dayTexture, vUv);
   vec4 nightColor = texture2D(nightTexture, vUv);
 
-  float shimmer = 0.03 * sin(time * 0.8 + vUv.x * 6.0) * blend;
+  // Boost day side brightness significantly
+  dayColor.rgb *= 2.0;
+  // Clamp to avoid blown highlights
+  dayColor.rgb = clamp(dayColor.rgb, 0.0, 1.0);
+  // Add subtle blue tactical tint to lit side
+  dayColor.rgb += vec3(0.0, 0.04, 0.10) * blend;
+
+  // Subtle shimmer on lit surface
+  float shimmer = 0.025 * sin(time * 0.7 + vUv.x * 5.0) * blend;
 
   vec4 color = mix(nightColor, dayColor, blend);
-  color.rgb += shimmer * vec3(0.0, 0.4, 0.8);
+  color.rgb += shimmer * vec3(0.0, 0.3, 0.6);
 
   gl_FragColor = color;
 }

@@ -23,18 +23,28 @@ export interface ShipStatus {
 
 export interface Alert {
   id: string;
+  type: "threat" | "system" | "combat" | "navigation" | "aegis";
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  /** @deprecated use severity — kept for backward compat */
   level: "INFO" | "WARNING" | "CRITICAL";
   title: string;
   message: string;
   timestamp: string;
+  source?: string;
   acknowledged: boolean;
+  resolvedAt?: string | null;
 }
 
 export interface LogEntry {
   id: string;
+  type: "event" | "combat" | "system" | "navigation" | "scan";
   timestamp: string;
   message: string;
   category: "SYS" | "SCAN" | "COMBAT" | "NAV";
+  severity?: "INFO" | "WARNING" | "CRITICAL";
+  source?: string;
+  targetId?: string;
+  data?: Record<string, unknown>;
 }
 
 interface DashboardStore {
@@ -48,6 +58,9 @@ interface DashboardStore {
   setTab: (tab: DashboardTab) => void;
   dismissAlert: (id: string) => void;
   addLog: (msg: string, category?: LogEntry["category"]) => void;
+  addAlert: (alert: Omit<Alert, "id" | "acknowledged">) => void;
+  acknowledgeAlert: (id: string) => void;
+  clearAlerts: () => void;
 }
 
 const MOCK_SHIP: ShipStatus = {
@@ -63,56 +76,74 @@ const MOCK_SHIP: ShipStatus = {
 const MOCK_ALERTS: Alert[] = [
   {
     id: "a1",
+    type: "system",
+    severity: "CRITICAL",
     level: "CRITICAL",
     title: "HULL BREACH DETECTED",
     message:
       "Micro-fracture event on deck 7 — section 14-C reporting atmospheric loss. Emergency bulkheads engaged. Repair drones dispatched.",
     timestamp: "04:14:02",
+    source: "HULL-SENSOR-14C",
     acknowledged: false,
   },
   {
     id: "a2",
+    type: "navigation",
+    severity: "WARNING",
     level: "WARNING",
     title: "GRAVITATIONAL ANOMALY",
     message:
       "CLASS II gravitational distortion at grid 14-C. Drift trajectory calculated. Course correction recommended within 12 minutes.",
     timestamp: "04:12:38",
+    source: "NAVIGATION-CORE",
     acknowledged: false,
   },
   {
     id: "a3",
+    type: "system",
+    severity: "WARNING",
     level: "WARNING",
     title: "SHIELD EMITTER FAULT",
     message:
       "Emitter #3 flux instability — resonance drift at 0.4% above nominal. Backup emitter online. Monitor for further degradation.",
     timestamp: "04:09:11",
+    source: "SHIELD-EMITTER-3",
     acknowledged: false,
   },
   {
     id: "a4",
+    type: "navigation",
+    severity: "INFO",
     level: "INFO",
     title: "JUMP DRIVE COOLDOWN",
     message:
       "Jump drive cooldown active. Next available jump window in T-MINUS 00:08:32. Standby mode engaged. All nav systems nominal.",
     timestamp: "04:07:55",
+    source: "DRIVE-CONTROL",
     acknowledged: true,
   },
   {
     id: "a5",
+    type: "system",
+    severity: "WARNING",
     level: "WARNING",
     title: "SENSOR ARRAY DEGRADED",
     message:
       "Long-range sensor array operating at 73% capacity. Solar interference from ALPHA-7 primary. Estimated restoration: 00:04:10.",
     timestamp: "04:06:30",
+    source: "SENSOR-ARRAY-LR",
     acknowledged: false,
   },
   {
     id: "a6",
+    type: "system",
+    severity: "INFO",
     level: "INFO",
     title: "AUTOMATED SCAN COMPLETE",
     message:
       "Scheduled sector sweep finished. 14 nodes catalogued, 2 flagged for follow-up. No hostile contacts detected within range.",
     timestamp: "04:04:19",
+    source: "AEGIS-SYSTEM",
     acknowledged: true,
   },
 ];
@@ -120,39 +151,57 @@ const MOCK_ALERTS: Alert[] = [
 const MOCK_LOGS: LogEntry[] = [
   {
     id: "l1",
+    type: "scan",
     timestamp: "04:12:44",
     message: "Node NEXUS-7 locked — signal acquired",
     category: "SCAN",
+    severity: "INFO",
+    source: "SCAN-SUBSYSTEM",
   },
   {
     id: "l2",
+    type: "scan",
     timestamp: "04:11:22",
     message: "Scan sweep complete — 14 nodes catalogued",
     category: "SCAN",
+    severity: "INFO",
+    source: "SCAN-SUBSYSTEM",
   },
   {
     id: "l3",
+    type: "system",
     timestamp: "04:09:18",
     message: "Shield emitter fault logged — monitoring",
     category: "SYS",
+    severity: "WARNING",
+    source: "SHIELD-EMITTER-3",
   },
   {
     id: "l4",
+    type: "navigation",
     timestamp: "04:07:01",
     message: "Jump drive charge initiated",
     category: "NAV",
+    severity: "INFO",
+    source: "DRIVE-CONTROL",
   },
   {
     id: "l5",
+    type: "navigation",
     timestamp: "04:03:55",
     message: "Sector ALPHA-7 entered — threat ELEVATED",
     category: "NAV",
+    severity: "WARNING",
+    source: "NAVIGATION-CORE",
   },
   {
     id: "l6",
+    type: "system",
     timestamp: "04:00:00",
     message: "System boot complete — all subsystems nominal",
     category: "SYS",
+    severity: "INFO",
+    source: "BOOT-SEQUENCER",
   },
 ];
 
@@ -181,6 +230,7 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
       logs: [
         {
           id: `l${Date.now()}`,
+          type: "system" as const,
           timestamp: new Date().toTimeString().slice(0, 8),
           message: msg,
           category,
@@ -188,4 +238,25 @@ export const useDashboardStore = create<DashboardStore>((set) => ({
         ...s.logs,
       ].slice(0, 50),
     })),
+
+  addAlert: (alert) =>
+    set((s) => ({
+      alerts: [
+        {
+          ...alert,
+          id: `a${Date.now()}`,
+          acknowledged: false,
+        },
+        ...s.alerts,
+      ],
+    })),
+
+  acknowledgeAlert: (id) =>
+    set((s) => ({
+      alerts: s.alerts.map((a) =>
+        a.id === id ? { ...a, acknowledged: true } : a,
+      ),
+    })),
+
+  clearAlerts: () => set({ alerts: [] }),
 }));

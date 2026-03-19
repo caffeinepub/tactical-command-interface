@@ -52,7 +52,7 @@ const AlertRow = memo(function AlertRow({
           : undefined,
       }}
     >
-      {/* Row header — flex row with toggle area + dismiss button as siblings */}
+      {/* Row header */}
       <div
         style={{
           display: "flex",
@@ -64,7 +64,6 @@ const AlertRow = memo(function AlertRow({
           minHeight: 44,
         }}
       >
-        {/* Toggle button — takes up most of the row */}
         <button
           type="button"
           onClick={onToggle}
@@ -86,7 +85,6 @@ const AlertRow = memo(function AlertRow({
           aria-expanded={expanded}
           aria-label={`${alert.level} alert: ${alert.title}`}
         >
-          {/* Severity badge */}
           <span
             style={{
               fontFamily: "monospace",
@@ -104,7 +102,6 @@ const AlertRow = memo(function AlertRow({
             {label}
           </span>
 
-          {/* Title */}
           <span
             style={{
               flex: 1,
@@ -121,7 +118,6 @@ const AlertRow = memo(function AlertRow({
             {alert.title}
           </span>
 
-          {/* Timestamp */}
           <span
             style={{
               fontFamily: "monospace",
@@ -135,7 +131,6 @@ const AlertRow = memo(function AlertRow({
             {alert.timestamp}
           </span>
 
-          {/* Expand chevron */}
           <span
             style={{
               fontFamily: "monospace",
@@ -151,7 +146,6 @@ const AlertRow = memo(function AlertRow({
           </span>
         </button>
 
-        {/* Dismiss button — sibling of toggle button */}
         <button
           type="button"
           data-ocid={`alerts.delete_button.${index}`}
@@ -182,7 +176,7 @@ const AlertRow = memo(function AlertRow({
       {/* Expandable detail */}
       <div
         style={{
-          maxHeight: expanded ? 200 : 0,
+          maxHeight: expanded ? 220 : 0,
           overflow: "hidden",
           transition: "max-height 0.25s ease",
         }}
@@ -207,6 +201,19 @@ const AlertRow = memo(function AlertRow({
           >
             {alert.message}
           </p>
+          {alert.source && (
+            <div
+              style={{
+                fontSize: 8,
+                fontFamily: "monospace",
+                color: "rgba(0,180,255,0.35)",
+                marginTop: 3,
+                letterSpacing: "0.1em",
+              }}
+            >
+              SOURCE: {alert.source}
+            </div>
+          )}
           <div
             style={{
               fontFamily: "monospace",
@@ -215,6 +222,7 @@ const AlertRow = memo(function AlertRow({
                 ? "rgba(0,255,136,0.6)"
                 : "rgba(255,170,0,0.5)",
               letterSpacing: "0.12em",
+              marginTop: 4,
             }}
           >
             {alert.acknowledged ? "● ACKNOWLEDGED" : "○ UNACKNOWLEDGED"}

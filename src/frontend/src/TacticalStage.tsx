@@ -5,10 +5,13 @@ import HudOverlay from "./HudOverlay";
 import SmokeTestPanel from "./SmokeTestPanel";
 import CockpitAmbientFx from "./cockpit/CockpitAmbientFx";
 import CockpitFrame from "./cockpit/CockpitFrame";
+import SideEnclosure from "./cockpit/SideEnclosure";
 import CombatEffectsLayer from "./combat/CombatEffectsLayer";
 import WeaponDeck from "./combat/WeaponDeck";
 import CommandDashboard from "./dashboard/CommandDashboard";
 import CoordinateDisplay from "./globe/CoordinateDisplay";
+import ShipMotionLayer from "./motion/ShipMotionLayer";
+import RadarSystem from "./radar/RadarSystem";
 import { runSmokeTests } from "./smokeTest";
 import CameraController from "./three/CameraController";
 import InterceptSystem from "./three/InterceptSystem";
@@ -51,47 +54,79 @@ export default function TacticalStage() {
       setSmokeResults(record);
     }, 500);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSmokeResults]);
 
   return (
     <div
       style={{
-        position: "relative",
+        position: "fixed",
+        inset: 0,
         width: "100%",
         height: "100dvh",
+        overflow: "hidden",
       }}
       className="tactical-stage"
     >
-      <Canvas
-        camera={{ position: [0, 0, 5], fov: 52 }}
-        style={{
-          position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse at 50% 40%, #03071a 0%, #010208 65%, #000003 100%)",
-        }}
-        gl={{ antialias: true }}
-      >
-        <ambientLight intensity={0.08} />
-        <directionalLight
-          position={[5, 2, 3]}
-          intensity={1.8}
-          color="#fff5e0"
-        />
-        <pointLight position={[-4, -1, -2]} intensity={0.35} color="#1a3fff" />
-        <SpaceBackground />
-        <CameraController />
-        <GlobeCore />
-        <CombatEffectsLayer />
-        <ThreatManager />
-        <InterceptSystem />
-      </Canvas>
-      <HudOverlay />
-      <CoordinateDisplay />
-      <WeaponDeck />
-      <CockpitFrame />
-      <CockpitAmbientFx />
+      {/* Layer 1 — Globe canvas with max sway */}
+      <ShipMotionLayer factor={1.0} zIndex={1}>
+        <Canvas
+          camera={{ position: [0, 0, 5], fov: 52 }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(ellipse at 50% 40%, #03071a 0%, #010208 65%, #000003 100%)",
+          }}
+          gl={{ antialias: true }}
+        >
+          <ambientLight intensity={0.08} />
+          <directionalLight
+            position={[5, 2, 3]}
+            intensity={2.8}
+            color="#fff5e0"
+          />
+          <pointLight
+            position={[-4, -1, -2]}
+            intensity={0.35}
+            color="#1a3fff"
+          />
+          <SpaceBackground />
+          <CameraController />
+          <GlobeCore />
+          <CombatEffectsLayer />
+          <ThreatManager />
+          <InterceptSystem />
+        </Canvas>
+      </ShipMotionLayer>
+
+      {/* Layer 2 — HUD + CoordinateDisplay at reduced parallax */}
+      <ShipMotionLayer factor={0.55} zIndex={10}>
+        <HudOverlay />
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          <CoordinateDisplay />
+        </div>
+      </ShipMotionLayer>
+
+      {/* Layer 3 — Cockpit ambient FX, barely moves */}
+      <ShipMotionLayer factor={0.15} zIndex={16}>
+        <CockpitAmbientFx />
+      </ShipMotionLayer>
+
+      {/* Layer 4 — Cockpit frame image, minimal sway to keep it feeling structural */}
+      <ShipMotionLayer factor={0.2} zIndex={20}>
+        <CockpitFrame />
+      </ShipMotionLayer>
+
+      {/* Side enclosure — static, always seals the edges */}
+      <SideEnclosure />
+
+      {/* Layer 6 — Weapon deck + radar, mid-level sway */}
+      <ShipMotionLayer factor={0.42} zIndex={25}>
+        <WeaponDeck />
+        <RadarSystem />
+      </ShipMotionLayer>
+
+      {/* Static UI panels — no motion */}
       <SmokeTestPanel />
       <CommandDashboard />
     </div>
