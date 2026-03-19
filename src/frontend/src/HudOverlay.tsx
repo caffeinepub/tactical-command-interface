@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import HudReadout from "./HudReadout";
 import { useThreatStore } from "./combat/useThreatStore";
 import type { ThreatStatus } from "./combat/useThreatStore";
 
@@ -53,7 +52,7 @@ function ThreatWarningBanner() {
         top: "7%",
         left: "50%",
         transform: "translateX(-50%)",
-        zIndex: 20,
+        zIndex: 1,
         pointerEvents: "none",
         display: "flex",
         flexDirection: "column",
@@ -131,10 +130,6 @@ export default function HudOverlay() {
     isMajor: i % 5 === 0,
   }));
 
-  const rx = W * 0.82;
-  const ry = H * 0.78;
-  const radii = [25, 40, 55, 70];
-
   const sideFracs = [0.3, 0.4, 0.5, 0.6, 0.7];
   const visorNotches = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
 
@@ -145,11 +140,11 @@ export default function HudOverlay() {
         position: "absolute",
         inset: 0,
         pointerEvents: "none",
-        zIndex: 10,
+        zIndex: 1,
         filter: "drop-shadow(0 0 6px rgba(0,200,255,0.4))",
       }}
     >
-      {/* SVG DECORATIVE LAYER — never intercepts pointer events */}
+      {/* SVG DECORATIVE LAYER */}
       <svg
         width="100%"
         height="100%"
@@ -177,15 +172,6 @@ export default function HudOverlay() {
             </feMerge>
           </filter>
           <style>{`
-            @keyframes radar-spin {
-              from { transform: rotate(0deg); }
-              to { transform: rotate(360deg); }
-            }
-            .radar-sweep {
-              transform-box: fill-box;
-              transform-origin: ${rx}px ${ry}px;
-              animation: radar-spin 3s linear infinite;
-            }
             @keyframes hud-pulse {
               0%, 100% { opacity: 0.6; }
               50% { opacity: 1; }
@@ -194,7 +180,7 @@ export default function HudOverlay() {
           `}</style>
         </defs>
 
-        {/* TARGETING CROSSHAIR LINES */}
+        {/* CROSSHAIRS */}
         <line
           x1="0"
           y1={H * 0.5}
@@ -241,22 +227,6 @@ export default function HudOverlay() {
           >
             <line x1={c.x} y1={c.y} x2={c.x + c.dx * blen} y2={c.y} />
             <line x1={c.x} y1={c.y} x2={c.x} y2={c.y + c.dy * blen} />
-            <line
-              x1={c.x + c.dx * 8}
-              y1={c.y + c.dy * 20}
-              x2={c.x + c.dx * 20}
-              y2={c.y + c.dy * 20}
-              strokeOpacity={0.45}
-              strokeWidth="0.8"
-            />
-            <line
-              x1={c.x + c.dx * 20}
-              y1={c.y + c.dy * 8}
-              x2={c.x + c.dx * 20}
-              y2={c.y + c.dy * 20}
-              strokeOpacity={0.45}
-              strokeWidth="0.8"
-            />
           </g>
         ))}
 
@@ -304,71 +274,7 @@ export default function HudOverlay() {
           ))}
         </g>
 
-        {/* RADAR ELEMENT */}
-        <g filter="url(#hud-glow)">
-          {radii.map((r) => (
-            <circle
-              key={`radar-ring-${r}`}
-              cx={rx}
-              cy={ry}
-              r={r}
-              fill="none"
-              stroke="rgba(0,220,255,0.25)"
-              strokeWidth="0.5"
-            />
-          ))}
-          <line
-            x1={rx - 75}
-            y1={ry}
-            x2={rx + 75}
-            y2={ry}
-            stroke="rgba(0,220,255,0.15)"
-            strokeWidth="0.5"
-          />
-          <line
-            x1={rx}
-            y1={ry - 75}
-            x2={rx}
-            y2={ry + 75}
-            stroke="rgba(0,220,255,0.15)"
-            strokeWidth="0.5"
-          />
-          <line
-            className="radar-sweep"
-            x1={rx}
-            y1={ry}
-            x2={rx}
-            y2={ry - 70}
-            stroke="rgba(0,220,255,0.7)"
-            strokeWidth="1"
-          />
-          <circle cx={rx} cy={ry} r={2} fill="rgba(0,220,255,0.8)" />
-          <circle cx={rx + 22} cy={ry - 18} r={2} fill="rgba(0,220,255,0.6)" />
-          <circle
-            cx={rx - 30}
-            cy={ry + 10}
-            r={1.5}
-            fill="rgba(0,220,255,0.4)"
-          />
-          <circle
-            cx={rx + 10}
-            cy={ry + 35}
-            r={1.5}
-            fill="rgba(0,220,255,0.5)"
-          />
-          <text
-            x={rx - 16}
-            y={ry + 85}
-            fill="rgba(0,220,255,0.6)"
-            fontSize="10"
-            fontFamily="monospace"
-            letterSpacing="2"
-          >
-            SCAN
-          </text>
-        </g>
-
-        {/* SCAN DATA TEXT */}
+        {/* HUD TEXT */}
         <g
           fill="rgba(0,220,255,0.6)"
           fontSize="11"
@@ -386,15 +292,6 @@ export default function HudOverlay() {
           </text>
           <text x={W * 0.72} y={H * 0.165} textAnchor="start" opacity="0.7">
             THREAT: NOMINAL
-          </text>
-          <text x={W * 0.09} y={H * 0.83}>
-            LAT 23.4° LON 118.2°
-          </text>
-          <text x={W * 0.09} y={H * 0.845} opacity="0.7">
-            ALT 412 KM — ORBIT STABLE
-          </text>
-          <text x={W * 0.76} y={H * 0.68} opacity="0.7">
-            RDR-SYS ACTIVE
           </text>
         </g>
 
@@ -415,23 +312,9 @@ export default function HudOverlay() {
             );
           })}
         </g>
-
-        {/* DISTANCE MARKERS */}
-        <g fill="rgba(0,220,255,0.45)" fontSize="9" fontFamily="monospace">
-          <text x={W * 0.5 + 8} y={H * 0.5 - 6}>
-            ◇ CORE
-          </text>
-          <text x={W * 0.5 + 8} y={H * 0.35}>
-            ▲ N-POLE
-          </text>
-          <text x={W * 0.62} y={H * 0.52}>
-            ► ARC-7
-          </text>
-        </g>
       </svg>
 
-      {/* HUD READOUT — interactive, sits above SVG */}
-      <HudReadout />
+      {/* Threat warning banner */}
       <ThreatWarningBanner />
     </div>
   );

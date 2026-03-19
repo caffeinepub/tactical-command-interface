@@ -12,7 +12,6 @@ void main() {
 }
 `;
 
-// Brighter day side, cleaner terminator, better tactical contrast
 const FRAGMENT_SHADER = `
 uniform sampler2D dayTexture;
 uniform sampler2D nightTexture;
@@ -29,14 +28,10 @@ void main() {
   vec4 dayColor = texture2D(dayTexture, vUv);
   vec4 nightColor = texture2D(nightTexture, vUv);
 
-  // Boost day side brightness significantly
   dayColor.rgb *= 2.0;
-  // Clamp to avoid blown highlights
   dayColor.rgb = clamp(dayColor.rgb, 0.0, 1.0);
-  // Add subtle blue tactical tint to lit side
   dayColor.rgb += vec3(0.0, 0.04, 0.10) * blend;
 
-  // Subtle shimmer on lit surface
   float shimmer = 0.025 * sin(time * 0.7 + vUv.x * 5.0) * blend;
 
   vec4 color = mix(nightColor, dayColor, blend);
@@ -50,21 +45,34 @@ interface PlanetSphereProps {
   dayTexture: THREE.CanvasTexture;
   nightTexture: THREE.CanvasTexture;
   onHover?: (lat: number, lng: number) => void;
+  onClick?: (lat: number, lng: number) => void;
 }
 
 export default function PlanetSphere({
   dayTexture,
   nightTexture,
   onHover,
+  onClick,
 }: PlanetSphereProps) {
   const matRef = useRef<THREE.ShaderMaterial>(null!);
   const sunDir = new THREE.Vector3(5, 2, 3).normalize();
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
 
   useFrame(({ clock }) => {
     if (matRef.current) {
       matRef.current.uniforms.time.value = clock.elapsedTime;
     }
   });
+
+  const intersectToLatLng = (
+    point: THREE.Vector3,
+  ): { lat: number; lng: number } => {
+    const r = point.length();
+    const lat = 90 - Math.acos(point.y / r) * (180 / Math.PI);
+    const lng = Math.atan2(point.z, -point.x) * (180 / Math.PI) - 180;
+    const normalizedLng = ((lng + 540) % 360) - 180;
+    return { lat, lng: normalizedLng };
+  };
 
   const handlePointerMove = (e: { uv?: THREE.Vector2 }) => {
     if (!onHover || !e.uv) return;
@@ -73,8 +81,34 @@ export default function PlanetSphere({
     onHover(lat, lng);
   };
 
+  const handlePointerDown = (e: { clientX?: number; clientY?: number }) => {
+    pointerDownPos.current = { x: e.clientX ?? 0, y: e.clientY ?? 0 };
+  };
+
+  const handleClick = (e: {
+    point?: THREE.Vector3;
+    clientX?: number;
+    clientY?: number;
+  }) => {
+    if (!onClick) return;
+    // Check if moved too much (drag vs click)
+    if (pointerDownPos.current && e.clientX != null && e.clientY != null) {
+      const dx = e.clientX - pointerDownPos.current.x;
+      const dy = e.clientY - pointerDownPos.current.y;
+      if (dx * dx + dy * dy > 64) return; // 8px threshold
+    }
+    if (!e.point) return;
+    const { lat, lng } = intersectToLatLng(e.point);
+    onClick(lat, lng);
+  };
+
   return (
-    <mesh onPointerMove={handlePointerMove}>
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Three.js mesh — not a DOM element
+    <mesh
+      onPointerMove={handlePointerMove}
+      onPointerDown={handlePointerDown}
+      onClick={handleClick}
+    >
       <sphereGeometry args={[1.5, 64, 64]} />
       <shaderMaterial
         ref={matRef}

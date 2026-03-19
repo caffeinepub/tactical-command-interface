@@ -20,7 +20,7 @@ const INITIAL_WEAPONS: Weapon[] = [
   {
     id: "pulse",
     name: "PULSE CANNON",
-    shortLabel: "PCN",
+    shortLabel: "PULSE CANNON",
     cooldownTime: 1200,
     currentCooldown: 0,
     status: "READY",
@@ -31,7 +31,7 @@ const INITIAL_WEAPONS: Weapon[] = [
   {
     id: "rail",
     name: "RAIL GUN",
-    shortLabel: "RLG",
+    shortLabel: "RAIL GUN",
     cooldownTime: 3500,
     currentCooldown: 0,
     status: "READY",
@@ -42,7 +42,7 @@ const INITIAL_WEAPONS: Weapon[] = [
   {
     id: "emp",
     name: "EMP BURST",
-    shortLabel: "EMP",
+    shortLabel: "EMP BURST",
     cooldownTime: 5000,
     currentCooldown: 0,
     status: "READY",
@@ -54,12 +54,25 @@ const INITIAL_WEAPONS: Weapon[] = [
 
 interface WeaponsStore {
   weapons: Weapon[];
+  selectedWeaponId: string;
+  selectWeapon: (weaponId: string) => void;
   fire: (weaponId: string) => void;
+  fireSelected: () => void;
   tick: (dtMs: number) => void;
 }
 
 export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
   weapons: INITIAL_WEAPONS,
+  selectedWeaponId: "pulse",
+
+  selectWeapon: (weaponId: string) => {
+    set({ selectedWeaponId: weaponId });
+  },
+
+  fireSelected: () => {
+    const { selectedWeaponId, fire } = get();
+    fire(selectedWeaponId);
+  },
 
   fire: (weaponId: string) => {
     const { selectedNode } = useTacticalStore.getState();
@@ -97,7 +110,6 @@ export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
         weapon.type === "railgun" ? 400 : weapon.type === "emp" ? 350 : 250,
     });
 
-    // Ship motion jolt on fire
     triggerBattleJolt(weapon.type);
 
     setTargetHitFlash(true);
@@ -112,6 +124,12 @@ export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
       setTimeout(() => setEmpStunnedNode(null), 3000);
     }
 
+    // Log the fire event
+    useTacticalStore.getState().pushEventLog({
+      msg: `${weapon.name} FIRED → ${selectedNode}`,
+      type: "fire",
+    });
+
     if (selectedNode.startsWith("THREAT-")) {
       const { interceptThreat } = useThreatStore.getState();
       interceptThreat(selectedNode, weapon.type);
@@ -125,8 +143,11 @@ export const useWeaponsStore = create<WeaponsStore>((set, get) => ({
           startTime: performance.now(),
           weaponType: weapon.type,
         });
-        // Impact/destruction jolt
         triggerBattleJolt(weapon.type, true);
+        useTacticalStore.getState().pushEventLog({
+          msg: `TARGET DESTROYED: ${selectedNode}`,
+          type: "destroy",
+        });
       }
     }
 

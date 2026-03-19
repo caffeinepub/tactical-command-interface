@@ -12,7 +12,7 @@ import {
   buildHexTexture,
   buildNightTexture,
 } from "./globe/globeTextures";
-import { useTacticalStore } from "./useTacticalStore";
+import { generateTargetId, useTacticalStore } from "./useTacticalStore";
 
 export const NODE_COUNT = 14;
 
@@ -51,6 +51,75 @@ export function latLngToVec3(
   ];
 }
 
+function TargetReticle({ lat, lng }: { lat: number; lng: number }) {
+  const pos = useMemo(() => latLngToVec3(lat, lng, 1.54), [lat, lng]);
+  const outerRef = useRef<THREE.Mesh>(null!);
+  const innerRef = useRef<THREE.Mesh>(null!);
+
+  const quat = useMemo(() => {
+    const posVec = new THREE.Vector3(...pos).normalize();
+    const q = new THREE.Quaternion();
+    q.setFromUnitVectors(new THREE.Vector3(0, 0, 1), posVec);
+    return q;
+  }, [pos]);
+
+  useFrame(({ clock }) => {
+    if (outerRef.current) {
+      outerRef.current.rotation.z = clock.elapsedTime * 1.8;
+    }
+    if (innerRef.current) {
+      const s = 1 + 0.2 * Math.sin(clock.elapsedTime * 6);
+      innerRef.current.scale.setScalar(s);
+    }
+  });
+
+  return (
+    <group position={pos} quaternion={quat}>
+      {/* Outer spinning ring */}
+      <mesh ref={outerRef}>
+        <ringGeometry args={[0.07, 0.095, 32]} />
+        <meshBasicMaterial
+          color="#ff3333"
+          transparent
+          opacity={0.95}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Inner pulsing dot */}
+      <mesh ref={innerRef}>
+        <circleGeometry args={[0.018, 16]} />
+        <meshBasicMaterial
+          color="#ff6666"
+          transparent
+          opacity={0.9}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {/* Corner tick marks */}
+      {[0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((angle) => (
+        <mesh
+          key={angle}
+          position={[0.11 * Math.cos(angle), 0.11 * Math.sin(angle), 0]}
+          rotation={[0, 0, angle]}
+        >
+          <planeGeometry args={[0.025, 0.004]} />
+          <meshBasicMaterial
+            color="#ff4444"
+            transparent
+            opacity={0.8}
+            depthWrite={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function NodeMarker({
   lat,
   lng,
@@ -68,6 +137,7 @@ function NodeMarker({
   const [hovered, setHovered] = useState(false);
   const selectedNode = useTacticalStore((s) => s.selectedNode);
   const selectNode = useTacticalStore((s) => s.selectNode);
+  const pushEventLog = useTacticalStore((s) => s.pushEventLog);
   const scanMode = useTacticalStore((s) => s.scanMode);
   const targetHitFlash = useCombatState((s) => s.targetHitFlash);
   const empStunnedNode = useCombatState((s) => s.empStunnedNode);
@@ -79,7 +149,8 @@ function NodeMarker({
 
   const handleSelect = useCallback(() => {
     selectNode(id);
-  }, [id, selectNode]);
+    pushEventLog({ msg: `TARGET LOCKED: ${id}`, type: "lock" });
+  }, [id, selectNode, pushEventLog]);
 
   useFrame(({ clock }) => {
     const mesh = meshRef.current;
@@ -116,7 +187,7 @@ function NodeMarker({
   });
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: Three.js mesh — not a DOM interactive element
+    // biome-ignore lint/a11y/useKeyWithClickEvents: Three.js mesh
     <mesh
       ref={meshRef}
       position={pos}
@@ -284,6 +355,10 @@ function EnergyHotspot() {
 
 export default function GlobeCore() {
   const setHoveredCoords = useTacticalStore((s) => s.setHoveredCoords);
+  const setGlobeTarget = useTacticalStore((s) => s.setGlobeTarget);
+  const selectNode = useTacticalStore((s) => s.selectNode);
+  const pushEventLog = useTacticalStore((s) => s.pushEventLog);
+  const globeTarget = useTacticalStore((s) => s.globeTarget);
 
   const dayTexture = useMemo(() => buildDayTexture(), []);
   const nightTexture = useMemo(() => buildNightTexture(), []);
@@ -301,12 +376,28 @@ export default function GlobeCore() {
     setHoveredCoords(null);
   }, [setHoveredCoords]);
 
+  const handleGlobeClick = useCallback(
+    (lat: number, lng: number) => {
+      const sector = getSectorName(lat, lng);
+      const id = generateTargetId();
+      const threatLevel = Math.floor(Math.random() * 5) + 1;
+      setGlobeTarget({ lat, lng, sector, id, threatLevel });
+      selectNode(id);
+      pushEventLog({
+        msg: `TARGET ACQUIRED: ${id} @ ${lat.toFixed(1)}° ${lng.toFixed(1)}°`,
+        type: "lock",
+      });
+    },
+    [setGlobeTarget, selectNode, pushEventLog],
+  );
+
   return (
     <group onPointerLeave={handleLeave}>
       <PlanetSphere
         dayTexture={dayTexture}
         nightTexture={nightTexture}
         onHover={handleHover}
+        onClick={handleGlobeClick}
       />
       <CloudLayer cloudTexture={cloudTexture} />
       <AtmosphereGlow />
@@ -315,6 +406,9 @@ export default function GlobeCore() {
       <ScanSweep />
       <EnergyHotspot />
       <NodeMarkers />
+      {globeTarget && (
+        <TargetReticle lat={globeTarget.lat} lng={globeTarget.lng} />
+      )}
     </group>
   );
 }

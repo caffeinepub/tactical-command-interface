@@ -20,6 +20,21 @@ function hashId(id: string): number[] {
 
 export type ControlMode = "orbit" | "turret";
 
+export interface GlobeTarget {
+  lat: number;
+  lng: number;
+  sector: string;
+  id: string;
+  threatLevel: number;
+}
+
+export interface EventLogEntry {
+  id: string;
+  msg: string;
+  ts: number;
+  type: "fire" | "lock" | "destroy" | "incoming" | "system";
+}
+
 interface TacticalStore {
   selectedNode: string | null;
   scanMode: boolean;
@@ -27,6 +42,8 @@ interface TacticalStore {
   smokeTestResults: Record<string, boolean> | null;
   controlMode: ControlMode;
   hoveredCoords: { lat: number; lng: number; sector: string } | null;
+  globeTarget: GlobeTarget | null;
+  eventLog: EventLogEntry[];
   selectNode: (id: string) => void;
   clearNode: () => void;
   toggleScanMode: () => void;
@@ -35,7 +52,11 @@ interface TacticalStore {
   setHoveredCoords: (
     coords: { lat: number; lng: number; sector: string } | null,
   ) => void;
+  setGlobeTarget: (target: GlobeTarget | null) => void;
+  pushEventLog: (entry: Omit<EventLogEntry, "id" | "ts">) => void;
 }
+
+let _targetCounter = 1;
 
 export const useTacticalStore = create<TacticalStore>((set) => ({
   selectedNode: null,
@@ -44,13 +65,24 @@ export const useTacticalStore = create<TacticalStore>((set) => ({
   smokeTestResults: null,
   controlMode: "orbit",
   hoveredCoords: null,
+  globeTarget: null,
+  eventLog: [
+    { id: "boot-1", msg: "SYSTEM ONLINE", ts: Date.now(), type: "system" },
+    {
+      id: "boot-2",
+      msg: "AEGIS ACTIVE",
+      ts: Date.now() - 1000,
+      type: "system",
+    },
+  ],
 
   selectNode: (id: string) => {
     const [energy, signal, stability] = hashId(id);
     set({ selectedNode: id, nodeData: { energy, signal, stability } });
   },
 
-  clearNode: () => set({ selectedNode: null, nodeData: null }),
+  clearNode: () =>
+    set({ selectedNode: null, nodeData: null, globeTarget: null }),
 
   toggleScanMode: () => set((s) => ({ scanMode: !s.scanMode })),
 
@@ -59,4 +91,31 @@ export const useTacticalStore = create<TacticalStore>((set) => ({
   setControlMode: (mode) => set({ controlMode: mode }),
 
   setHoveredCoords: (coords) => set({ hoveredCoords: coords }),
+
+  setGlobeTarget: (target) => {
+    if (!target) {
+      set({ globeTarget: null });
+      return;
+    }
+    set({ globeTarget: target });
+  },
+
+  pushEventLog: (entry) => {
+    set((s) => ({
+      eventLog: [
+        {
+          id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          ts: Date.now(),
+          ...entry,
+        },
+        ...s.eventLog,
+      ].slice(0, 40),
+    }));
+  },
 }));
+
+export function generateTargetId(): string {
+  const id = String(_targetCounter).padStart(4, "0");
+  _targetCounter++;
+  return `TGT-${id}`;
+}

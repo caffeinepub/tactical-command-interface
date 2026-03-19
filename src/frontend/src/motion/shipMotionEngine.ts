@@ -129,3 +129,8 @@ export function triggerBattleJolt(
   joltY = Math.max(-10, Math.min(10, joltY + Math.sin(angle) * power));
   joltRot = Math.max(-0.45, Math.min(0.45, joltRot + rand(-0.35, 0.35)));
 }
+
+/** Read current sway (px) for use inside Three.js canvas */
+export function getSway(): { x: number; y: number } {
+  return { x: swayX + joltX, y: swayY + joltY };
+}
