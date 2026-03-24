@@ -1,3 +1,24 @@
+/**
+ * TacticalStage — V17.2
+ *
+ * Layer / z-index order (highest → lowest):
+ *   62  Portrait command drawer
+ *   60  Command dashboard (landscape)
+ *   55  Tutorial overlay
+ *   52  Story modals / alerts
+ *   50  Smoke test panel
+ *   44  MobileJoystick (left-side zone)
+ *   42  Floating log button
+ *   40  HUD controls (SCAN / CMD / WAR buttons)
+ *   35  Weapon control deck
+ *   20  Cockpit frame (pointer-events: none)
+ *   15  Cockpit ambient fx (pointer-events: none)
+ *   12  Cockpit reticle / impact overlay (pointer-events: none)
+ *   11  Target lock anim (pointer-events: none)
+ *   10  HUD readout overlays (pointer-events: none)
+ *    2  RightDragZone  ← drag/pinch only, taps fall through
+ *    1  Three.js Canvas  ← PRIMARY tap/raycast receiver
+ */
 import { Canvas } from "@react-three/fiber";
 import { useCallback, useEffect, useRef, useState } from "react";
 import GlobeCore, { NODE_COUNT } from "./GlobeCore";
@@ -8,6 +29,7 @@ import CockpitAmbientFx from "./cockpit/CockpitAmbientFx";
 import CockpitFrame from "./cockpit/CockpitFrame";
 import SideEnclosure from "./cockpit/SideEnclosure";
 import CombatEffectsLayer from "./combat/CombatEffectsLayer";
+import WarModeToggle from "./combat/WarModeToggle";
 import WeaponControlDeck from "./combat/WeaponControlDeck";
 import { useThreatStore } from "./combat/useThreatStore";
 import { useWeaponsStore } from "./combat/useWeapons";
@@ -95,6 +117,7 @@ function HudControls() {
 
   return (
     <>
+      {/* Right cluster: SCAN + CMD + WAR */}
       <div
         style={{
           position: "absolute",
@@ -103,8 +126,10 @@ function HudControls() {
           display: "flex",
           gap: 6,
           pointerEvents: "auto",
+          alignItems: "center",
         }}
       >
+        <WarModeToggle />
         <button
           type="button"
           data-tutorial-target="scan-btn"
@@ -123,6 +148,7 @@ function HudControls() {
         </button>
       </div>
 
+      {/* Left: target status */}
       <div
         style={{
           position: "absolute",
@@ -131,6 +157,7 @@ function HudControls() {
           display: "flex",
           gap: 6,
           alignItems: "center",
+          pointerEvents: "none",
         }}
       >
         <span
@@ -140,7 +167,6 @@ function HudControls() {
             letterSpacing: "0.18em",
             color: selectedNode ? "#00ffcc" : "rgba(0,180,255,0.4)",
             textShadow: selectedNode ? "0 0 8px #00ffcc88" : "none",
-            pointerEvents: "none",
             whiteSpace: "nowrap",
           }}
         >
@@ -257,7 +283,6 @@ function PortraitStage() {
   const handleGlobeAreaTap = useCallback((e: React.PointerEvent) => {
     const tutStep = useTutorialStore.getState().currentStep;
     if (tutStep !== "target") return;
-    // DOM-level belt-and-suspenders: fires if Three.js onClick/onPointerUp did not register
     const store = useTacticalStore.getState();
     if (!store.globeTarget) {
       store.setGlobeTarget({
@@ -287,6 +312,7 @@ function PortraitStage() {
     >
       <PortraitStatusBar />
 
+      {/* Globe area — 42dvh, primary interaction zone */}
       <div
         data-tutorial-target="globe-area"
         onPointerUp={handleGlobeAreaTap}
@@ -298,6 +324,7 @@ function PortraitStage() {
           flexShrink: 0,
         }}
       >
+        {/* z:1 THREE.JS CANVAS — primary tap/raycast receiver */}
         <ShipMotionLayer factor={1.0} zIndex={1}>
           <Canvas
             camera={{ position: [0, 0, 5], fov: 52 }}
@@ -313,6 +340,10 @@ function PortraitStage() {
           </Canvas>
         </ShipMotionLayer>
 
+        {/* z:2 DRAG ZONE — intercepts confirmed drags/pinch, taps fall through */}
+        <RightDragZone />
+
+        {/* z:10 HUD overlays — pointer-events:none */}
         <ShipMotionLayer
           factor={0.55}
           zIndex={10}
@@ -326,7 +357,7 @@ function PortraitStage() {
           </div>
         </ShipMotionLayer>
 
-        {/* Target lock animation — HUD layer */}
+        {/* z:11 Target lock / reticle / impact — pointer-events:none */}
         <div
           style={{
             position: "absolute",
@@ -337,7 +368,6 @@ function PortraitStage() {
         >
           <TargetLockAnim />
         </div>
-
         <div
           style={{
             position: "absolute",
@@ -348,7 +378,6 @@ function PortraitStage() {
         >
           <CockpitReticle portrait />
         </div>
-
         <div
           style={{
             position: "absolute",
@@ -360,6 +389,7 @@ function PortraitStage() {
           <ImpactParticleOverlay />
         </div>
 
+        {/* z:12 Cockpit ambient — pointer-events:none */}
         <ShipMotionLayer
           factor={0.15}
           zIndex={12}
@@ -368,6 +398,7 @@ function PortraitStage() {
           <CockpitAmbientFx />
         </ShipMotionLayer>
 
+        {/* z:15 Cockpit frame — pointer-events:none */}
         <ShipMotionLayer
           factor={0.2}
           leanMult={1}
@@ -377,6 +408,7 @@ function PortraitStage() {
           <CockpitFrame />
         </ShipMotionLayer>
 
+        {/* Velocity + air handler — lower left */}
         <div
           style={{
             position: "absolute",
@@ -393,20 +425,20 @@ function PortraitStage() {
           <VelocityIndicator />
           <AirHandlerIndicator />
         </div>
-
-        <RightDragZone />
       </div>
 
       <WeaponControlDeck portrait />
       <BottomCommandNav />
       <PortraitCommandDrawer />
       <TacticalLogPanel />
+
+      {/* z:44 Joystick — left-side only, pointer-events auto */}
       <MobileJoystick />
 
-      {/* Tutorial overlay */}
+      {/* z:55 Tutorial overlay */}
       <TutorialOverlay />
 
-      {/* Story systems */}
+      {/* Story / alerts */}
       <StoryEventModal />
       <SpaceLogPanel />
       <CriticalAlertOverlay />
@@ -438,6 +470,7 @@ function LandscapeStage() {
       }}
       className="tactical-stage"
     >
+      {/* z:1 THREE.JS CANVAS — primary input */}
       <ShipMotionLayer factor={1.0} zIndex={1}>
         <Canvas
           camera={{ position: [0, 0, 5], fov: 52 }}
@@ -453,6 +486,9 @@ function LandscapeStage() {
         </Canvas>
       </ShipMotionLayer>
 
+      {/* z:2 DRAG ZONE — drag/pinch only, taps pass through */}
+      <RightDragZone />
+
       <div
         style={{
           position: "absolute",
@@ -464,6 +500,7 @@ function LandscapeStage() {
         <SideEnclosure />
       </div>
 
+      {/* z:10 HUD overlays — pointer-events:none */}
       <ShipMotionLayer
         factor={0.55}
         zIndex={10}
@@ -475,7 +512,6 @@ function LandscapeStage() {
         </div>
       </ShipMotionLayer>
 
-      {/* Target lock animation — HUD layer */}
       <div
         style={{
           position: "absolute",
@@ -486,7 +522,6 @@ function LandscapeStage() {
       >
         <TargetLockAnim />
       </div>
-
       <div
         style={{
           position: "absolute",
@@ -497,7 +532,6 @@ function LandscapeStage() {
       >
         <CockpitReticle />
       </div>
-
       <div
         style={{
           position: "absolute",
@@ -525,7 +559,7 @@ function LandscapeStage() {
         <CockpitFrame />
       </ShipMotionLayer>
 
-      {/* Globe area spotlight target */}
+      {/* Globe area for tutorial spotlight */}
       <div
         data-tutorial-target="globe-area"
         style={{
@@ -539,6 +573,7 @@ function LandscapeStage() {
       <LeftPanel />
       <RightPanel />
 
+      {/* z:40 HUD controls (WAR + SCAN + CMD) */}
       <div
         style={{
           position: "absolute",
@@ -612,12 +647,11 @@ function LandscapeStage() {
       </div>
 
       <TacticalLogPanel />
-      <RightDragZone />
 
-      {/* Tutorial overlay */}
+      {/* z:55 Tutorial overlay */}
       <TutorialOverlay />
 
-      {/* Story systems */}
+      {/* Story / alerts */}
       <StoryEventModal />
       <SpaceLogPanel />
       <CriticalAlertOverlay />
@@ -688,10 +722,8 @@ export default function TacticalStage() {
       const store = useTacticalStore.getState();
       const threatStore = useThreatStore.getState();
       const weaponStore = useWeaponsStore.getState();
-
       void threatStore;
       void weaponStore;
-
       const results = runSmokeTests({
         canvasMounted: canvasMountedRef.current,
         nodeCount: NODE_COUNT,
@@ -702,15 +734,13 @@ export default function TacticalStage() {
         viewportHeight: window.innerHeight,
       });
       const record: Record<string, boolean> = {};
-      for (const r of results) {
-        record[r.label] = r.pass;
-      }
+      for (const r of results) record[r.label] = r.pass;
       setSmokeResults(record);
     }, 500);
     return () => clearTimeout(timer);
   }, [setSmokeResults]);
 
-  // Award tutorial completion bonus credits (once)
+  // Award tutorial completion bonus
   const tutorialCompleteForBonus = useTutorialStore((s) => s.tutorialComplete);
   const tutorialBonusFiredRef = useRef(false);
   useEffect(() => {
@@ -719,7 +749,7 @@ export default function TacticalStage() {
       useCreditsStore.getState().earn(TUTORIAL_BONUS, "Tutorial Completed");
       useTacticalLogStore.getState().addEntry({
         type: "mission",
-        message: `+${TUTORIAL_BONUS} CR — Tutorial Completed`,
+        message: `+${TUTORIAL_BONUS} CR \u2014 Tutorial Completed`,
       });
     }
   }, [tutorialCompleteForBonus]);

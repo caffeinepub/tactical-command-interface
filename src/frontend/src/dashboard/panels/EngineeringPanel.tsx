@@ -1,4 +1,11 @@
+/**
+ * EngineeringPanel — V17.2
+ * Added: AudioStatusHud section + WarModeToggle section.
+ */
 import { memo } from "react";
+import WarModeToggle from "../../combat/WarModeToggle";
+import { useTestModeStore } from "../../combat/useTestModeStore";
+import AudioStatusHud from "../../hud/AudioStatusHud";
 
 interface SystemPower {
   name: string;
@@ -15,8 +22,52 @@ const SYSTEMS: SystemPower[] = [
 ];
 
 const EngineeringPanel = memo(function EngineeringPanel() {
+  const warEnabled = useTestModeStore((s) => s.warEnabled);
+
   return (
     <div style={{ padding: "14px 14px" }}>
+      {/* ── TEST MODE SECTION ────────────────────────────────── */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "10px 12px",
+          border: `1px solid ${warEnabled ? "rgba(255,68,68,0.3)" : "rgba(0,255,200,0.3)"}`,
+          background: warEnabled ? "rgba(30,0,0,0.4)" : "rgba(0,20,15,0.4)",
+          borderRadius: 3,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 9,
+            fontFamily: "monospace",
+            color: "rgba(0,180,255,0.5)",
+            letterSpacing: "0.2em",
+            marginBottom: 8,
+          }}
+        >
+          ▸ COMBAT MODE
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <WarModeToggle />
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 9,
+              color: warEnabled
+                ? "rgba(255,100,100,0.7)"
+                : "rgba(0,255,180,0.7)",
+              letterSpacing: "0.1em",
+              lineHeight: 1.4,
+            }}
+          >
+            {warEnabled
+              ? "Hostile spawns ACTIVE\u2009— threats escalating"
+              : "War suppressed\u2009— safe for testing"}
+          </span>
+        </div>
+      </div>
+
+      {/* ── POWER DISTRIBUTION ────────────────────────────── */}
       <div
         style={{
           fontSize: 9,
@@ -71,6 +122,7 @@ const EngineeringPanel = memo(function EngineeringPanel() {
         </div>
       ))}
 
+      {/* ── AUDIO STATUS ──────────────────────────────────── */}
       <div
         style={{
           marginTop: 14,
@@ -78,143 +130,7 @@ const EngineeringPanel = memo(function EngineeringPanel() {
           paddingTop: 12,
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-            marginBottom: 12,
-          }}
-        >
-          <div
-            style={{
-              padding: "8px",
-              border: "1px solid rgba(0,220,255,0.15)",
-              background: "rgba(0,10,25,0.5)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 8,
-                fontFamily: "monospace",
-                color: "rgba(0,180,255,0.5)",
-                letterSpacing: "0.12em",
-                marginBottom: 3,
-              }}
-            >
-              CORE TEMP
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                fontFamily: "monospace",
-                color: "#00ff88",
-                fontWeight: 700,
-              }}
-            >
-              4,200 K
-            </div>
-            <div
-              style={{
-                fontSize: 8,
-                fontFamily: "monospace",
-                color: "#00ff88",
-                letterSpacing: "0.1em",
-                marginTop: 2,
-              }}
-            >
-              NOMINAL
-            </div>
-          </div>
-          <div
-            style={{
-              padding: "8px",
-              border: "1px solid rgba(255,170,0,0.2)",
-              background: "rgba(0,10,25,0.5)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 8,
-                fontFamily: "monospace",
-                color: "rgba(0,180,255,0.5)",
-                letterSpacing: "0.12em",
-                marginBottom: 3,
-              }}
-            >
-              ACTIVE WARNINGS
-            </div>
-            <div
-              style={{
-                fontSize: 16,
-                fontFamily: "monospace",
-                color: "#ffaa00",
-                fontWeight: 700,
-              }}
-            >
-              1
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            fontSize: 9,
-            fontFamily: "monospace",
-            color: "rgba(0,180,255,0.5)",
-            letterSpacing: "0.15em",
-            marginBottom: 6,
-          }}
-        >
-          SYSTEM LOAD
-        </div>
-        <div
-          style={{
-            position: "relative",
-            height: 14,
-            background: "rgba(0,100,150,0.25)",
-            border: "0.5px solid rgba(0,220,255,0.2)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              height: "100%",
-              width: "67%",
-              background:
-                "linear-gradient(90deg, rgba(0,180,255,0.4), rgba(0,220,255,0.7))",
-              boxShadow: "0 0 8px rgba(0,200,255,0.4)",
-            }}
-          />
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              height: "100%",
-              width: "100%",
-              background:
-                "repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(0,8,20,0.3) 10px, rgba(0,8,20,0.3) 11px)",
-            }}
-          />
-          <span
-            style={{
-              position: "absolute",
-              right: 6,
-              top: "50%",
-              transform: "translateY(-50%)",
-              fontFamily: "monospace",
-              fontSize: 8,
-              color: "rgba(0,220,255,0.8)",
-              letterSpacing: "0.1em",
-            }}
-          >
-            67%
-          </span>
-        </div>
+        <AudioStatusHud />
       </div>
     </div>
   );

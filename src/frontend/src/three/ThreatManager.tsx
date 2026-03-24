@@ -1,5 +1,12 @@
+/**
+ * ThreatManager — V17.2
+ * Checks useTestModeStore.warEnabled before spawning threats.
+ * When TEST MODE is active (warEnabled=false), no new threats spawn.
+ * Existing threats still animate out (not frozen mid-flight).
+ */
 import { useFrame } from "@react-three/fiber";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useTestModeStore } from "../combat/useTestModeStore";
 import { useThreatStore } from "../combat/useThreatStore";
 import AsteroidThreat from "./AsteroidThreat";
 
@@ -20,16 +27,24 @@ function ThreatUpdater() {
 export default function ThreatManager() {
   const threats = useThreatStore((s) => s.threats);
   const spawnThreat = useThreatStore((s) => s.spawnThreat);
+  const warEnabled = useTestModeStore((s) => s.warEnabled);
+  const warRef = useRef(warEnabled);
 
-  // Auto-spawn threats
+  // Keep ref in sync so the timeout callbacks read the latest value
   useEffect(() => {
-    // Spawn first threat after a short delay
-    const initial = setTimeout(spawnThreat, 4000);
+    warRef.current = warEnabled;
+  }, [warEnabled]);
 
-    function scheduleNext() {
+  useEffect(() => {
+    // Initial threat after delay (only if war is on)
+    const initial = setTimeout(() => {
+      if (warRef.current) spawnThreat();
+    }, 4000);
+
+    function scheduleNext(): ReturnType<typeof setTimeout> {
       const delay = 12000 + Math.random() * 6000;
       return setTimeout(() => {
-        spawnThreat();
+        if (warRef.current) spawnThreat();
         timer = scheduleNext();
       }, delay);
     }

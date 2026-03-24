@@ -1,9 +1,13 @@
 /**
- * shipMovementEngine — RAF-based input → orbital position driver.
+ * shipMovementEngine — V17.2
  *
- * Sensitivity reduced ~50% from previous values.
- * Added setCockpitLean() hook for motion engine sway.
- * Added setGForceAmp() to scale sway with velocity (G-force impression).
+ * REMOVED: attachMouseDragListeners().
+ *   The old mouse drag handler fired on `window` and called setVelocity()
+ *   simultaneously with RightDragZone's pointer handlers — causing the
+ *   "double update" that produced bumpy/jumpy spin on desktop.
+ *   RightDragZone now handles ALL drag input (mouse & touch) directly.
+ *
+ * Joystick sensitivity reduced another ~30% from V17.1 values.
  */
 import { setCockpitLean, setGForceAmp } from "../motion/shipMotionEngine";
 import { useShipStore } from "./useShipStore";
@@ -13,15 +17,14 @@ const keyboard = { x: 0, y: 0 };
 let headingYaw = 0;
 let headingPitch = 0;
 
-// Reduced ~50% from 0.00045
-const THRUST_RATE = 0.000225;
-// Reduced ~50% from 0.0018
-const RIGHT_DRAG_SENS = 0.0009;
-const MAX_HYaw = 0.32;
-const MAX_HPitch = 0.22;
+// Reduced from 0.000225 (V17.1) → 0.00015 (V17.2)
+const THRUST_RATE = 0.00015;
+// Reduced from 0.0009 (V17.1) → 0.0006 (V17.2)
+const RIGHT_DRAG_SENS = 0.0006;
+const MAX_HYaw = 0.28;
+const MAX_HPitch = 0.18;
 const HEADING_DECAY = 0.975;
 
-// Max velocity for G-force amp normalization
 const MAX_VEL = THRUST_RATE * 18;
 
 export function setJoystickInput(x: number, y: number) {
@@ -75,13 +78,10 @@ function tick(now: number) {
   headingPitch *= HEADING_DECAY;
   store.setHeading(headingYaw, headingPitch);
 
-  // Drive cockpit lean: opposite direction to movement (subtle 3-5% feel)
   setCockpitLean(-inputX * 1.5);
 
-  // G-force amp: scale with current velocity magnitude
   const velMag = Math.sqrt(nVT * nVT + nVP * nVP);
   const velNorm = Math.min(1, velMag / MAX_VEL);
-  // 1.0 at rest → 1.5 at full speed (modest amplification of sway)
   setGForceAmp(1.0 + velNorm * 0.5);
 
   rafId = requestAnimationFrame(tick);
@@ -100,7 +100,7 @@ export function stopShipMovementEngine() {
   }
 }
 
-// ─── Keyboard ──────────────────────────────────────────────────────────────────────────────────
+// ─── Keyboard ─────────────────────────────────────────────────────────────────
 const keysDown = new Set<string>();
 
 function updateKb() {
@@ -139,47 +139,9 @@ export function attachKeyboardListeners() {
   };
 }
 
-// ─── Mouse drag (desktop) ─────────────────────────────────────────────────────────────────────────────
-let mouseDown = false;
-let mouseLX = 0;
-let mouseLY = 0;
-
+/** Stub kept for import compatibility — actual drag handled by RightDragZone. */
 export function attachMouseDragListeners() {
-  const onDown = (e: MouseEvent) => {
-    if (e.button === 0 || e.button === 2) {
-      mouseDown = true;
-      mouseLX = e.clientX;
-      mouseLY = e.clientY;
-    }
-  };
-  const onUp = () => {
-    mouseDown = false;
-  };
-  const onMove = (e: MouseEvent) => {
-    if (!mouseDown) return;
-    const dx = e.clientX - mouseLX;
-    const dy = e.clientY - mouseLY;
-    mouseLX = e.clientX;
-    mouseLY = e.clientY;
-    if (e.clientX > window.innerWidth * 0.5) {
-      const s = useShipStore.getState();
-      const maxV = 0.008;
-      // Reduced ~50% from 0.0006/0.0005
-      s.setVelocity(
-        Math.max(-maxV, Math.min(maxV, s.velTheta - dx * 0.0003)),
-        Math.max(-maxV, Math.min(maxV, s.velPhi + dy * 0.00025)),
-      );
-    }
-  };
-  const noCtx = (e: Event) => e.preventDefault();
-  window.addEventListener("mousedown", onDown);
-  window.addEventListener("mouseup", onUp);
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("contextmenu", noCtx);
   return () => {
-    window.removeEventListener("mousedown", onDown);
-    window.removeEventListener("mouseup", onUp);
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("contextmenu", noCtx);
+    /* no-op — removed in V17.2 to prevent double velocity updates */
   };
 }
